@@ -46,11 +46,22 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
    * Configuration for fcfs asynchronous replication
    */
 
-  public static final String DFS_FCFS_NUM_IMMEDIATE_KEY = "dfs.fcfs.num-immediate";
-  public static final int DFS_FCFS_NUM_IMMEDIATE_DEFAULT = 0;
-  public static final String DFS_FCFS_LOG_INTERVAL_KEY = "dfs.fcfs.log.interval";
-  public static final int DFS_FCFS_LOG_INTERVAL_DEFAULT = 5000;
-
+  public static final String  FCFS_NUM_IMMEDIATE_KEY = "fcfs.num-immediate";
+  public static final int     FCFS_NUM_IMMEDIATE_DEFAULT = 0;
+  public static final String  FCFS_LOG_INTERVAL_KEY = "fcfs.log.interval";
+  public static final int     FCFS_LOG_INTERVAL_DEFAULT = 5000;
+  public static final String  FCFS_STAT_INTERVAL_KEY = "fcfs.stat.interval";
+  public static final int     FCFS_STAT_INTERVAL_DEFAULT = 5000;
+  public static final String  FCFS_ACTIVITY_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
+  public static final float   FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT = 0.1f;
+  public static final String  FCFS_CLUSTER_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
+  public static final float   FCFS_CLUSTER_SMOOTHING_EXP_DEFAULT = 0.01f;
+  public static final String  FCFS_REPLICATION_KEY = "fcfs.replication-priority";
+  public static final float   FCFS_REPLICATION_DEFAULT = 1.0f;
+  public static final String  FCFS_MAX_BUFFERED_KEY = "fcfs.max-buffered";
+  public static final int     FCFS_MAX_BUFFERED_DEFAULT = 2;
+  public static final String  FCFS_REPLICATION_TIMEOUT_KEY = "fcfs.replication-timeout";
+  public static final String  FCFS_REPLICATION_TIMEOUT_DEFAULT = "fcfs.replication-timeout";
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
