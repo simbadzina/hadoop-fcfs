@@ -42,6 +42,16 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final short   DFS_REPLICATION_DEFAULT =
       HdfsClientConfigKeys.DFS_REPLICATION_DEFAULT;
 
+  /*
+   * Configuration for fcfs asynchronous replication
+   */
+
+  public static final String DFS_FCFS_NUM_IMMEDIATE_KEY = "dfs.fcfs.num-immediate";
+  public static final int DFS_FCFS_NUM_IMMEDIATE_DEFAULT = 0;
+  public static final String DFS_FCFS_LOG_INTERVAL_KEY = "dfs.fcfs.log.interval";
+  public static final int DFS_FCFS_LOG_INTERVAL_DEFAULT = 5000;
+
+
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
   public static final String  DFS_BYTES_PER_CHECKSUM_KEY = "dfs.bytes-per-checksum";
@@ -106,7 +116,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_DATANODE_DUPLICATE_REPLICA_DELETION_DEFAULT = true;
 
   public static final String  DFS_NAMENODE_PATH_BASED_CACHE_BLOCK_MAP_ALLOCATION_PERCENT =
-    "dfs.namenode.path.based.cache.block.map.allocation.percent";
+      "dfs.namenode.path.based.cache.block.map.allocation.percent";
   public static final float    DFS_NAMENODE_PATH_BASED_CACHE_BLOCK_MAP_ALLOCATION_PERCENT_DEFAULT = 0.25f;
 
   public static final int     DFS_NAMENODE_HTTP_PORT_DEFAULT =
@@ -129,7 +139,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   // DFS_NAMENODE_SAFEMODE_THRESHOLD_PCT_DEFAULT to populate
   // needed replication queues before exiting safe mode
   public static final String  DFS_NAMENODE_REPL_QUEUE_THRESHOLD_PCT_KEY =
-    "dfs.namenode.replqueue.threshold-pct";
+      "dfs.namenode.replqueue.threshold-pct";
   public static final String  DFS_NAMENODE_SAFEMODE_MIN_DATANODES_KEY = "dfs.namenode.safemode.min.datanodes";
   public static final int     DFS_NAMENODE_SAFEMODE_MIN_DATANODES_DEFAULT = 0;
   public static final String  DFS_NAMENODE_SECONDARY_HTTP_ADDRESS_KEY = "dfs.namenode.secondary.http-address";
@@ -173,10 +183,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
       "org.apache.hadoop.hdfs.web.AuthFilter".toString();
   @Deprecated
   public static final String  DFS_WEBHDFS_USER_PATTERN_KEY =
-      HdfsClientConfigKeys.DFS_WEBHDFS_USER_PATTERN_KEY;
+  HdfsClientConfigKeys.DFS_WEBHDFS_USER_PATTERN_KEY;
   @Deprecated
   public static final String  DFS_WEBHDFS_USER_PATTERN_DEFAULT =
-      HdfsClientConfigKeys.DFS_WEBHDFS_USER_PATTERN_DEFAULT;
+  HdfsClientConfigKeys.DFS_WEBHDFS_USER_PATTERN_DEFAULT;
   public static final String  DFS_PERMISSIONS_ENABLED_KEY = "dfs.permissions.enabled";
   public static final boolean DFS_PERMISSIONS_ENABLED_DEFAULT = true;
   public static final String  DFS_PERMISSIONS_SUPERUSERGROUP_KEY = "dfs.permissions.superusergroup";
@@ -214,10 +224,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
 
   public static final String  DFS_NAMENODE_LAZY_PERSIST_FILE_SCRUB_INTERVAL_SEC = "dfs.namenode.lazypersist.file.scrub.interval.sec";
   public static final int     DFS_NAMENODE_LAZY_PERSIST_FILE_SCRUB_INTERVAL_SEC_DEFAULT = 5 * 60;
-  
+
   public static final String  DFS_NAMENODE_EDITS_NOEDITLOGCHANNELFLUSH = "dfs.namenode.edits.noeditlogchannelflush";
   public static final boolean DFS_NAMENODE_EDITS_NOEDITLOGCHANNELFLUSH_DEFAULT = false;
-  
+
   public static final String  DFS_LIST_LIMIT = "dfs.ls.limit";
   public static final int     DFS_LIST_LIMIT_DEFAULT = 1000;
   public static final String  DFS_CONTENT_SUMMARY_LIMIT_KEY = "dfs.content-summary.limit";
@@ -269,7 +279,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   // This value uses the times of heartbeat interval to define the minimum value for stale interval.  
   public static final String DFS_NAMENODE_STALE_DATANODE_MINIMUM_INTERVAL_KEY = "dfs.namenode.stale.datanode.minimum.interval";
   public static final int DFS_NAMENODE_STALE_DATANODE_MINIMUM_INTERVAL_DEFAULT = 3; // i.e. min_interval is 3 * heartbeat_interval = 9s
-  
+
   // When the percentage of stale datanodes reaches this ratio,
   // allow writing to stale nodes to prevent hotspots.
   public static final String DFS_NAMENODE_USE_STALE_DATANODE_FOR_WRITE_RATIO_KEY = "dfs.namenode.write.stale.datanode.ratio";
@@ -445,12 +455,12 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String DFS_IMAGE_COMPRESS_KEY = "dfs.image.compress";
   public static final boolean DFS_IMAGE_COMPRESS_DEFAULT = false;
   public static final String DFS_IMAGE_COMPRESSION_CODEC_KEY =
-                                   "dfs.image.compression.codec";
+      "dfs.image.compression.codec";
   public static final String DFS_IMAGE_COMPRESSION_CODEC_DEFAULT =
-                                   "org.apache.hadoop.io.compress.DefaultCodec";
+      "org.apache.hadoop.io.compress.DefaultCodec";
 
   public static final String DFS_IMAGE_TRANSFER_RATE_KEY =
-                                           "dfs.image.transfer.bandwidthPerSec";
+      "dfs.image.transfer.bandwidthPerSec";
   public static final long DFS_IMAGE_TRANSFER_RATE_DEFAULT = 0;  //no throttling
 
   // Image transfer timeout
@@ -515,7 +525,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_WEB_AUTHENTICATION_KERBEROS_KEYTAB_KEY = "dfs.web.authentication.kerberos.keytab";
   public static final String  DFS_NAMENODE_MAX_OP_SIZE_KEY = "dfs.namenode.max.op.size";
   public static final int     DFS_NAMENODE_MAX_OP_SIZE_DEFAULT = 50 * 1024 * 1024;
-  
+
   public static final String DFS_BLOCK_LOCAL_PATH_ACCESS_USER_KEY = "dfs.block.local-path-access.user";
   public static final String DFS_DOMAIN_SOCKET_PATH_KEY = "dfs.domain.socket.path";
   public static final String DFS_DOMAIN_SOCKET_PATH_DEFAULT = "";
@@ -543,7 +553,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final boolean DFS_HA_AUTO_FAILOVER_ENABLED_DEFAULT = false;
   public static final String DFS_HA_ZKFC_PORT_KEY = "dfs.ha.zkfc.port";
   public static final int DFS_HA_ZKFC_PORT_DEFAULT = 8019;
-  
+
   // Security-related configs
   public static final String DFS_ENCRYPT_DATA_TRANSFER_KEY = "dfs.encrypt.data.transfer";
   public static final boolean DFS_ENCRYPT_DATA_TRANSFER_DEFAULT = false;
@@ -565,7 +575,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_JOURNALNODE_RPC_ADDRESS_KEY = "dfs.journalnode.rpc-address";
   public static final int     DFS_JOURNALNODE_RPC_PORT_DEFAULT = 8485;
   public static final String  DFS_JOURNALNODE_RPC_ADDRESS_DEFAULT = "0.0.0.0:" + DFS_JOURNALNODE_RPC_PORT_DEFAULT;
-    
+
   public static final String  DFS_JOURNALNODE_HTTP_ADDRESS_KEY = "dfs.journalnode.http-address";
   public static final int     DFS_JOURNALNODE_HTTP_PORT_DEFAULT = 8480;
   public static final String  DFS_JOURNALNODE_HTTP_ADDRESS_DEFAULT = "0.0.0.0:" + DFS_JOURNALNODE_HTTP_PORT_DEFAULT;
@@ -580,7 +590,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   // Journal-node related configs for the client side.
   public static final String  DFS_QJOURNAL_QUEUE_SIZE_LIMIT_KEY = "dfs.qjournal.queued-edits.limit.mb";
   public static final int     DFS_QJOURNAL_QUEUE_SIZE_LIMIT_DEFAULT = 10;
-  
+
   // Quorum-journal timeouts for various operations. Unlikely to need
   // to be tweaked, but configurable just in case.
   public static final String  DFS_QJOURNAL_START_SEGMENT_TIMEOUT_KEY = "dfs.qjournal.start-segment.timeout.ms";
@@ -599,17 +609,17 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int     DFS_QJOURNAL_GET_JOURNAL_STATE_TIMEOUT_DEFAULT = 120000;
   public static final int     DFS_QJOURNAL_NEW_EPOCH_TIMEOUT_DEFAULT = 120000;
   public static final int     DFS_QJOURNAL_WRITE_TXNS_TIMEOUT_DEFAULT = 20000;
-  
+
   public static final String DFS_MAX_NUM_BLOCKS_TO_LOG_KEY = "dfs.namenode.max-num-blocks-to-log";
   public static final long   DFS_MAX_NUM_BLOCKS_TO_LOG_DEFAULT = 1000l;
-  
+
   public static final String DFS_NAMENODE_ENABLE_RETRY_CACHE_KEY = "dfs.namenode.enable.retrycache";
   public static final boolean DFS_NAMENODE_ENABLE_RETRY_CACHE_DEFAULT = true;
   public static final String DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_KEY = "dfs.namenode.retrycache.expirytime.millis";
   public static final long DFS_NAMENODE_RETRY_CACHE_EXPIRYTIME_MILLIS_DEFAULT = 600000; // 10 minutes
   public static final String DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_KEY = "dfs.namenode.retrycache.heap.percent";
   public static final float DFS_NAMENODE_RETRY_CACHE_HEAP_PERCENT_DEFAULT = 0.03f;
-  
+
   // Hidden configuration undocumented in hdfs-site. xml
   // Timeout to wait for block receiver and responder thread to stop
   public static final String DFS_DATANODE_XCEIVER_STOP_TIMEOUT_MILLIS_KEY = "dfs.datanode.xceiver.stop.timeout.millis";
@@ -618,50 +628,50 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   // WebHDFS retry policy
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_RETRY_POLICY_ENABLED_KEY =
-      HdfsClientConfigKeys.HttpClient.RETRY_POLICY_ENABLED_KEY;
+  HdfsClientConfigKeys.HttpClient.RETRY_POLICY_ENABLED_KEY;
   @Deprecated
   public static final boolean DFS_HTTP_CLIENT_RETRY_POLICY_ENABLED_DEFAULT =
-      HdfsClientConfigKeys.HttpClient.RETRY_POLICY_ENABLED_DEFAULT;
+  HdfsClientConfigKeys.HttpClient.RETRY_POLICY_ENABLED_DEFAULT;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_RETRY_POLICY_SPEC_KEY =
-      HdfsClientConfigKeys.HttpClient.RETRY_POLICY_SPEC_KEY;
+  HdfsClientConfigKeys.HttpClient.RETRY_POLICY_SPEC_KEY;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_RETRY_POLICY_SPEC_DEFAULT =
-      HdfsClientConfigKeys.HttpClient.RETRY_POLICY_SPEC_DEFAULT;
+  HdfsClientConfigKeys.HttpClient.RETRY_POLICY_SPEC_DEFAULT;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY =
-      HdfsClientConfigKeys.HttpClient.FAILOVER_MAX_ATTEMPTS_KEY;
+  HdfsClientConfigKeys.HttpClient.FAILOVER_MAX_ATTEMPTS_KEY;
   @Deprecated
   public static final int     DFS_HTTP_CLIENT_FAILOVER_MAX_ATTEMPTS_DEFAULT =
-      HdfsClientConfigKeys.HttpClient.FAILOVER_MAX_ATTEMPTS_DEFAULT;
+  HdfsClientConfigKeys.HttpClient.FAILOVER_MAX_ATTEMPTS_DEFAULT;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_RETRY_MAX_ATTEMPTS_KEY =
-      HdfsClientConfigKeys.HttpClient.RETRY_MAX_ATTEMPTS_KEY;
+  HdfsClientConfigKeys.HttpClient.RETRY_MAX_ATTEMPTS_KEY;
   @Deprecated
   public static final int     DFS_HTTP_CLIENT_RETRY_MAX_ATTEMPTS_DEFAULT =
-      HdfsClientConfigKeys.HttpClient.RETRY_MAX_ATTEMPTS_DEFAULT;
+  HdfsClientConfigKeys.HttpClient.RETRY_MAX_ATTEMPTS_DEFAULT;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_FAILOVER_SLEEPTIME_BASE_KEY =
-      HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_BASE_KEY;
+  HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_BASE_KEY;
   @Deprecated
   public static final int     DFS_HTTP_CLIENT_FAILOVER_SLEEPTIME_BASE_DEFAULT =
-      HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_BASE_DEFAULT;
+  HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_BASE_DEFAULT;
   @Deprecated
   public static final String  DFS_HTTP_CLIENT_FAILOVER_SLEEPTIME_MAX_KEY =
-      HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_MAX_KEY;
+  HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_MAX_KEY;
   @Deprecated
   public static final int     DFS_HTTP_CLIENT_FAILOVER_SLEEPTIME_MAX_DEFAULT
-      = HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_MAX_DEFAULT;
+  = HdfsClientConfigKeys.HttpClient.FAILOVER_SLEEPTIME_MAX_DEFAULT;
 
   // Handling unresolved DN topology mapping
   public static final String  DFS_REJECT_UNRESOLVED_DN_TOPOLOGY_MAPPING_KEY = 
       "dfs.namenode.reject-unresolved-dn-topology-mapping";
   public static final boolean DFS_REJECT_UNRESOLVED_DN_TOPOLOGY_MAPPING_DEFAULT =
       false;
-  
+
   // Slow io warning log threshold settings for dfsclient and datanode.
   public static final String DFS_DATANODE_SLOW_IO_WARNING_THRESHOLD_KEY =
-    "dfs.datanode.slow.io.warning.threshold.ms";
+      "dfs.datanode.slow.io.warning.threshold.ms";
   public static final long DFS_DATANODE_SLOW_IO_WARNING_THRESHOLD_DEFAULT = 300;
 
   public static final String DFS_DATANODE_BLOCK_ID_LAYOUT_UPGRADE_THREADS_KEY =
@@ -696,244 +706,244 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
 
   // Key Provider Cache Expiry
   public static final String DFS_DATANODE_BLOCK_PINNING_ENABLED = 
-    "dfs.datanode.block-pinning.enabled";
+      "dfs.datanode.block-pinning.enabled";
   public static final boolean DFS_DATANODE_BLOCK_PINNING_ENABLED_DEFAULT =
-    false;
+      false;
 
 
-  
-  
+
+
   // dfs.client.retry confs are moved to HdfsClientConfigKeys.Retry 
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_POLICY_ENABLED_KEY
-      = HdfsClientConfigKeys.Retry.POLICY_ENABLED_KEY;
+  = HdfsClientConfigKeys.Retry.POLICY_ENABLED_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_RETRY_POLICY_ENABLED_DEFAULT
-      = HdfsClientConfigKeys.Retry.POLICY_ENABLED_DEFAULT; 
+  = HdfsClientConfigKeys.Retry.POLICY_ENABLED_DEFAULT; 
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_POLICY_SPEC_KEY
-      = HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY;
+  = HdfsClientConfigKeys.Retry.POLICY_SPEC_KEY;
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_POLICY_SPEC_DEFAULT
-      = HdfsClientConfigKeys.Retry.POLICY_SPEC_DEFAULT;
+  = HdfsClientConfigKeys.Retry.POLICY_SPEC_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_TIMES_GET_LAST_BLOCK_LENGTH
-      = HdfsClientConfigKeys.Retry.TIMES_GET_LAST_BLOCK_LENGTH_KEY;
+  = HdfsClientConfigKeys.Retry.TIMES_GET_LAST_BLOCK_LENGTH_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_RETRY_TIMES_GET_LAST_BLOCK_LENGTH_DEFAULT
-      = HdfsClientConfigKeys.Retry.TIMES_GET_LAST_BLOCK_LENGTH_DEFAULT;
+  = HdfsClientConfigKeys.Retry.TIMES_GET_LAST_BLOCK_LENGTH_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_INTERVAL_GET_LAST_BLOCK_LENGTH
-      = HdfsClientConfigKeys.Retry.INTERVAL_GET_LAST_BLOCK_LENGTH_KEY;
+  = HdfsClientConfigKeys.Retry.INTERVAL_GET_LAST_BLOCK_LENGTH_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_RETRY_INTERVAL_GET_LAST_BLOCK_LENGTH_DEFAULT
-      = HdfsClientConfigKeys.Retry.INTERVAL_GET_LAST_BLOCK_LENGTH_DEFAULT;
+  = HdfsClientConfigKeys.Retry.INTERVAL_GET_LAST_BLOCK_LENGTH_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_MAX_ATTEMPTS_KEY
-      = HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_KEY;
+  = HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_RETRY_MAX_ATTEMPTS_DEFAULT
-      = HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_DEFAULT;
+  = HdfsClientConfigKeys.Retry.MAX_ATTEMPTS_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_RETRY_WINDOW_BASE
-      = HdfsClientConfigKeys.Retry.WINDOW_BASE_KEY;
+  = HdfsClientConfigKeys.Retry.WINDOW_BASE_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_RETRY_WINDOW_BASE_DEFAULT
-      = HdfsClientConfigKeys.Retry.WINDOW_BASE_DEFAULT;
+  = HdfsClientConfigKeys.Retry.WINDOW_BASE_DEFAULT;
 
   // dfs.client.failover confs are moved to HdfsClientConfigKeys.Failover 
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_PROXY_PROVIDER_KEY_PREFIX
-      = HdfsClientConfigKeys.Failover.PROXY_PROVIDER_KEY_PREFIX;
+  = HdfsClientConfigKeys.Failover.PROXY_PROVIDER_KEY_PREFIX;
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_MAX_ATTEMPTS_KEY
-      = HdfsClientConfigKeys.Failover.MAX_ATTEMPTS_KEY;
+  = HdfsClientConfigKeys.Failover.MAX_ATTEMPTS_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_FAILOVER_MAX_ATTEMPTS_DEFAULT
-      = HdfsClientConfigKeys.Failover.MAX_ATTEMPTS_DEFAULT;
+  = HdfsClientConfigKeys.Failover.MAX_ATTEMPTS_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_SLEEPTIME_BASE_KEY
-      = HdfsClientConfigKeys.Failover.SLEEPTIME_BASE_KEY;
+  = HdfsClientConfigKeys.Failover.SLEEPTIME_BASE_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_FAILOVER_SLEEPTIME_BASE_DEFAULT
-      = HdfsClientConfigKeys.Failover.SLEEPTIME_BASE_DEFAULT;
+  = HdfsClientConfigKeys.Failover.SLEEPTIME_BASE_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_SLEEPTIME_MAX_KEY
-      = HdfsClientConfigKeys.Failover.SLEEPTIME_MAX_KEY;
+  = HdfsClientConfigKeys.Failover.SLEEPTIME_MAX_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_FAILOVER_SLEEPTIME_MAX_DEFAULT
-      = HdfsClientConfigKeys.Failover.SLEEPTIME_MAX_DEFAULT;
+  = HdfsClientConfigKeys.Failover.SLEEPTIME_MAX_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_KEY
-      = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_KEY;
+  = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_DEFAULT
-      = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_DEFAULT;
+  = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY
-      = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY;
+  = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_FAILOVER_CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_DEFAULT
-      = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_DEFAULT;
-  
+  = HdfsClientConfigKeys.Failover.CONNECTION_RETRIES_ON_SOCKET_TIMEOUTS_DEFAULT;
+
   // dfs.client.write confs are moved to HdfsClientConfigKeys.Write 
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_MAX_PACKETS_IN_FLIGHT_KEY
-      = HdfsClientConfigKeys.Write.MAX_PACKETS_IN_FLIGHT_KEY;
+  = HdfsClientConfigKeys.Write.MAX_PACKETS_IN_FLIGHT_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_WRITE_MAX_PACKETS_IN_FLIGHT_DEFAULT
-      = HdfsClientConfigKeys.Write.MAX_PACKETS_IN_FLIGHT_DEFAULT;
+  = HdfsClientConfigKeys.Write.MAX_PACKETS_IN_FLIGHT_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL
-      = HdfsClientConfigKeys.Write.EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL_KEY;
+  = HdfsClientConfigKeys.Write.EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_WRITE_EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL_DEFAULT
-      = HdfsClientConfigKeys.Write.EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL_DEFAULT; // 10 minutes, in ms
+  = HdfsClientConfigKeys.Write.EXCLUDE_NODES_CACHE_EXPIRY_INTERVAL_DEFAULT; // 10 minutes, in ms
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_ENABLED_KEY
-      = HdfsClientConfigKeys.Write.ByteArrayManager.ENABLED_KEY;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.ENABLED_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_ENABLED_DEFAULT
-      = HdfsClientConfigKeys.Write.ByteArrayManager.ENABLED_DEFAULT;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.ENABLED_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_THRESHOLD_KEY
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_THRESHOLD_KEY;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_THRESHOLD_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_THRESHOLD_DEFAULT
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_THRESHOLD_DEFAULT;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_THRESHOLD_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_LIMIT_KEY
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_LIMIT_KEY;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_LIMIT_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_LIMIT_DEFAULT
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_LIMIT_DEFAULT;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_LIMIT_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_RESET_TIME_PERIOD_MS_KEY
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_RESET_TIME_PERIOD_MS_KEY;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_RESET_TIME_PERIOD_MS_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_WRITE_BYTE_ARRAY_MANAGER_COUNT_RESET_TIME_PERIOD_MS_DEFAULT
-      = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_RESET_TIME_PERIOD_MS_DEFAULT;
+  = HdfsClientConfigKeys.Write.ByteArrayManager.COUNT_RESET_TIME_PERIOD_MS_DEFAULT;
 
   // dfs.client.block.write confs are moved to HdfsClientConfigKeys.BlockWrite 
   @Deprecated
   public static final String  DFS_CLIENT_BLOCK_WRITE_RETRIES_KEY
-      = HdfsClientConfigKeys.BlockWrite.RETRIES_KEY;
+  = HdfsClientConfigKeys.BlockWrite.RETRIES_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_BLOCK_WRITE_RETRIES_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.RETRIES_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.RETRIES_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_BLOCK_WRITE_LOCATEFOLLOWINGBLOCK_RETRIES_KEY
-      = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_RETRIES_KEY;
+  = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_RETRIES_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_BLOCK_WRITE_LOCATEFOLLOWINGBLOCK_RETRIES_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_RETRIES_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_RETRIES_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_BLOCK_WRITE_LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_KEY
-      = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_MS_KEY;
+  = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_MS_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_BLOCK_WRITE_LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_MS_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.LOCATEFOLLOWINGBLOCK_INITIAL_DELAY_MS_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_ENABLE_KEY
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.ENABLE_KEY;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.ENABLE_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_ENABLE_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.ENABLE_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.ENABLE_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_POLICY_KEY
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_KEY;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_KEY;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_POLICY_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_BEST_EFFORT_KEY
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.BEST_EFFORT_KEY;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.BEST_EFFORT_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_WRITE_REPLACE_DATANODE_ON_FAILURE_BEST_EFFORT_DEFAULT
-      = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.BEST_EFFORT_DEFAULT;
+  = HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.BEST_EFFORT_DEFAULT;
 
   // dfs.client.read confs are moved to HdfsClientConfigKeys.Read 
   @Deprecated
   public static final String  DFS_CLIENT_READ_PREFETCH_SIZE_KEY
-      = HdfsClientConfigKeys.Read.PREFETCH_SIZE_KEY; 
+  = HdfsClientConfigKeys.Read.PREFETCH_SIZE_KEY; 
   @Deprecated
   public static final String  DFS_CLIENT_READ_SHORTCIRCUIT_KEY
-      = HdfsClientConfigKeys.Read.ShortCircuit.KEY; 
+  = HdfsClientConfigKeys.Read.ShortCircuit.KEY; 
   @Deprecated
   public static final boolean DFS_CLIENT_READ_SHORTCIRCUIT_DEFAULT
-      = HdfsClientConfigKeys.Read.ShortCircuit.DEFAULT;
+  = HdfsClientConfigKeys.Read.ShortCircuit.DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_READ_SHORTCIRCUIT_SKIP_CHECKSUM_KEY
-      = HdfsClientConfigKeys.Read.ShortCircuit.SKIP_CHECKSUM_KEY;
+  = HdfsClientConfigKeys.Read.ShortCircuit.SKIP_CHECKSUM_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_READ_SHORTCIRCUIT_SKIP_CHECKSUM_DEFAULT
-      = HdfsClientConfigKeys.Read.ShortCircuit.SKIP_CHECKSUM_DEFAULT;
+  = HdfsClientConfigKeys.Read.ShortCircuit.SKIP_CHECKSUM_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_READ_SHORTCIRCUIT_BUFFER_SIZE_KEY
-      = HdfsClientConfigKeys.Read.ShortCircuit.BUFFER_SIZE_KEY;
+  = HdfsClientConfigKeys.Read.ShortCircuit.BUFFER_SIZE_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_READ_SHORTCIRCUIT_BUFFER_SIZE_DEFAULT
-      = HdfsClientConfigKeys.Read.ShortCircuit.BUFFER_SIZE_DEFAULT;
+  = HdfsClientConfigKeys.Read.ShortCircuit.BUFFER_SIZE_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_READ_SHORTCIRCUIT_STREAMS_CACHE_SIZE_KEY
-      = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_SIZE_KEY;
+  = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_SIZE_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_READ_SHORTCIRCUIT_STREAMS_CACHE_SIZE_DEFAULT
-      = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_SIZE_DEFAULT;
+  = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_SIZE_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_READ_SHORTCIRCUIT_STREAMS_CACHE_EXPIRY_MS_KEY
-      = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_EXPIRY_MS_KEY;
+  = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_EXPIRY_MS_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_READ_SHORTCIRCUIT_STREAMS_CACHE_EXPIRY_MS_DEFAULT
-      = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_EXPIRY_MS_DEFAULT;
+  = HdfsClientConfigKeys.Read.ShortCircuit.STREAMS_CACHE_EXPIRY_MS_DEFAULT;
 
   // dfs.client.mmap confs are moved to HdfsClientConfigKeys.Mmap 
   @Deprecated
   public static final String  DFS_CLIENT_MMAP_ENABLED
-      = HdfsClientConfigKeys.Mmap.ENABLED_KEY;
+  = HdfsClientConfigKeys.Mmap.ENABLED_KEY;
   @Deprecated
   public static final boolean DFS_CLIENT_MMAP_ENABLED_DEFAULT
-      = HdfsClientConfigKeys.Mmap.ENABLED_DEFAULT;
+  = HdfsClientConfigKeys.Mmap.ENABLED_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_MMAP_CACHE_SIZE
-      = HdfsClientConfigKeys.Mmap.CACHE_SIZE_KEY;
+  = HdfsClientConfigKeys.Mmap.CACHE_SIZE_KEY;
   @Deprecated
   public static final int     DFS_CLIENT_MMAP_CACHE_SIZE_DEFAULT
-      = HdfsClientConfigKeys.Mmap.CACHE_SIZE_DEFAULT;
+  = HdfsClientConfigKeys.Mmap.CACHE_SIZE_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_MMAP_CACHE_TIMEOUT_MS
-      = HdfsClientConfigKeys.Mmap.CACHE_TIMEOUT_MS_KEY;
+  = HdfsClientConfigKeys.Mmap.CACHE_TIMEOUT_MS_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_MMAP_CACHE_TIMEOUT_MS_DEFAULT
-      = HdfsClientConfigKeys.Mmap.CACHE_TIMEOUT_MS_DEFAULT;
+  = HdfsClientConfigKeys.Mmap.CACHE_TIMEOUT_MS_DEFAULT;
   @Deprecated
   public static final String  DFS_CLIENT_MMAP_RETRY_TIMEOUT_MS
-      = HdfsClientConfigKeys.Mmap.RETRY_TIMEOUT_MS_KEY;
+  = HdfsClientConfigKeys.Mmap.RETRY_TIMEOUT_MS_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_MMAP_RETRY_TIMEOUT_MS_DEFAULT
-      = HdfsClientConfigKeys.Mmap.RETRY_TIMEOUT_MS_DEFAULT;
+  = HdfsClientConfigKeys.Mmap.RETRY_TIMEOUT_MS_DEFAULT;
 
   // dfs.client.short.circuit confs are moved to HdfsClientConfigKeys.ShortCircuit 
   @Deprecated
   public static final String  DFS_CLIENT_SHORT_CIRCUIT_REPLICA_STALE_THRESHOLD_MS
-      = HdfsClientConfigKeys.ShortCircuit.REPLICA_STALE_THRESHOLD_MS_KEY;
+  = HdfsClientConfigKeys.ShortCircuit.REPLICA_STALE_THRESHOLD_MS_KEY;
   @Deprecated
   public static final long    DFS_CLIENT_SHORT_CIRCUIT_REPLICA_STALE_THRESHOLD_MS_DEFAULT
-      = HdfsClientConfigKeys.ShortCircuit.REPLICA_STALE_THRESHOLD_MS_DEFAULT;
+  = HdfsClientConfigKeys.ShortCircuit.REPLICA_STALE_THRESHOLD_MS_DEFAULT;
 
   // dfs.client.hedged.read confs are moved to HdfsClientConfigKeys.HedgedRead 
   @Deprecated
   public static final String  DFS_DFSCLIENT_HEDGED_READ_THRESHOLD_MILLIS
-      = HdfsClientConfigKeys.HedgedRead.THRESHOLD_MILLIS_KEY;
+  = HdfsClientConfigKeys.HedgedRead.THRESHOLD_MILLIS_KEY;
   @Deprecated
   public static final long    DEFAULT_DFSCLIENT_HEDGED_READ_THRESHOLD_MILLIS
-      = HdfsClientConfigKeys.HedgedRead.THRESHOLD_MILLIS_DEFAULT;
+  = HdfsClientConfigKeys.HedgedRead.THRESHOLD_MILLIS_DEFAULT;
   @Deprecated
   public static final String  DFS_DFSCLIENT_HEDGED_READ_THREADPOOL_SIZE
-      = HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_KEY;
+  = HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_KEY;
   @Deprecated
   public static final int     DEFAULT_DFSCLIENT_HEDGED_READ_THREADPOOL_SIZE
-      = HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_DEFAULT;
+  = HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_DEFAULT;
 
 
 
@@ -960,7 +970,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int     DFS_CLIENT_FILE_BLOCK_STORAGE_LOCATIONS_NUM_THREADS_DEFAULT = 10;
   public static final String  DFS_CLIENT_FILE_BLOCK_STORAGE_LOCATIONS_TIMEOUT_MS = "dfs.client.file-block-storage-locations.timeout.millis";
   public static final int     DFS_CLIENT_FILE_BLOCK_STORAGE_LOCATIONS_TIMEOUT_MS_DEFAULT = 1000;
-  
+
   public static final String  DFS_CLIENT_DATANODE_RESTART_TIMEOUT_KEY = "dfs.client.datanode-restart.timeout";
   public static final long    DFS_CLIENT_DATANODE_RESTART_TIMEOUT_DEFAULT = 30;
 
