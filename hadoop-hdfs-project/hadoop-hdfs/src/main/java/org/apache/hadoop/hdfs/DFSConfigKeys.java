@@ -61,7 +61,12 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_MAX_BUFFERED_KEY = "fcfs.max-buffered";
   public static final int     FCFS_MAX_BUFFERED_DEFAULT = 2;
   public static final String  FCFS_REPLICATION_TIMEOUT_KEY = "fcfs.replication-timeout";
-  public static final String  FCFS_REPLICATION_TIMEOUT_DEFAULT = "fcfs.replication-timeout";
+  public static final int     FCFS_REPLICATION_TIMEOUT_DEFAULT = 300000;
+  public static final String  FCFS_RPC_ADDRESS_KEY = "dfs.delayedreplication.rpc.address";
+  public static final int     FCFS_RPC_DEFAULT_PORT = 12321;
+  public static final String  FCFS_RPC_ADDRESS_DEFAULT = "0.0.0.0:" + FCFS_RPC_DEFAULT_PORT;
+  public static final String  FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY = "fcfs.prioritize-earlier-replicas";
+  public static final boolean FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT = true;
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
