@@ -47,7 +47,6 @@ import org.apache.hadoop.hdfs.server.datanode.CachingStrategy;
 import org.apache.hadoop.hdfs.shortcircuit.ShortCircuitShm.SlotId;
 import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.DataChecksum;
-
 import org.apache.htrace.Trace;
 import org.apache.htrace.Span;
 
@@ -160,6 +159,57 @@ public class Sender implements DataTransferProtocol {
 
     send(out, Op.WRITE_BLOCK, proto.build());
   }
+  
+  
+  public void FCFSwriteBlock(final ExtendedBlock blk,
+      final StorageType storageType, 
+      final Token<BlockTokenIdentifier> blockToken,
+      final String clientName,
+      final DatanodeInfo[] targets,
+      final StorageType[] targetStorageTypes, 
+      final DatanodeInfo source,
+      final BlockConstructionStage stage,
+      final int pipelineSize,
+      final long minBytesRcvd,
+      final long maxBytesRcvd,
+      final long latestGenerationStamp,
+      DataChecksum requestedChecksum,
+      final CachingStrategy cachingStrategy,
+      final boolean allowLazyPersist,
+      final boolean pinning,
+      final boolean[] targetPinnings,float repPriority,String flowName, int fullPipelineSize) throws IOException {
+    ClientOperationHeaderProto header = DataTransferProtoUtil.buildClientHeader(
+        blk, clientName, blockToken);
+    
+    ChecksumProto checksumProto =
+      DataTransferProtoUtil.toProto(requestedChecksum);
+
+    OpWriteBlockProto.Builder proto = OpWriteBlockProto.newBuilder()
+      .setHeader(header)
+      .setStorageType(PBHelper.convertStorageType(storageType))
+      .addAllTargets(PBHelper.convert(targets, 1))
+      .addAllTargetStorageTypes(PBHelper.convertStorageTypes(targetStorageTypes, 1))
+      .setStage(toProto(stage))
+      .setPipelineSize(pipelineSize)
+      .setMinBytesRcvd(minBytesRcvd)
+      .setMaxBytesRcvd(maxBytesRcvd)
+      .setLatestGenerationStamp(latestGenerationStamp)
+      .setRequestedChecksum(checksumProto)
+      .setCachingStrategy(getCachingStrategy(cachingStrategy))
+      .setAllowLazyPersist(allowLazyPersist)
+      .setPinning(pinning)
+      .addAllTargetPinnings(PBHelper.convert(targetPinnings, 1))
+      .setReplicationPriority(repPriority)
+      .setFlowName(flowName)
+      .setFullPipelineSize(fullPipelineSize);
+    
+    if (source != null) {
+      proto.setSource(PBHelper.convertDatanodeInfo(source));
+    }
+
+    send(out, Op.WRITE_BLOCK, proto.build());
+  }
+  
 
   @Override
   public void transferBlock(final ExtendedBlock blk,

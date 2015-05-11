@@ -126,6 +126,10 @@ message OpWriteBlockProto {
   //whether to pin the block, so Balancer won't move it.
   optional bool pinning = 14 [default = false];
   repeated bool targetPinnings = 15;
+
+  optional float replicationPriority = 16 [default = 1.0];
+  optional string flowName = 17 [default = ""];
+  optional uint32 fullPipelineSize = 18 [default = 0];
 }
   
 message OpTransferBlockProto {

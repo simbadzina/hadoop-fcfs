@@ -134,6 +134,7 @@ public abstract class Receiver implements DataTransferProtocol {
     TraceScope traceScope = continueTraceSpan(proto.getHeader(),
         proto.getClass().getSimpleName());
     try {
+      if(!proto.hasReplicationPriority()){
       writeBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
           PBHelper.convertStorageType(proto.getStorageType()),
           PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),
@@ -152,6 +153,29 @@ public abstract class Receiver implements DataTransferProtocol {
           (proto.hasAllowLazyPersist() ? proto.getAllowLazyPersist() : false),
           (proto.hasPinning() ? proto.getPinning(): false),
           (PBHelper.convertBooleanList(proto.getTargetPinningsList())));
+      } else{
+          FCFSwriteBlock(PBHelper.convert(proto.getHeader().getBaseHeader().getBlock()),
+            PBHelper.convertStorageType(proto.getStorageType()),
+            PBHelper.convert(proto.getHeader().getBaseHeader().getToken()),
+            proto.getHeader().getClientName(),
+            targets,
+            PBHelper.convertStorageTypes(proto.getTargetStorageTypesList(), targets.length),
+            PBHelper.convert(proto.getSource()),
+            fromProto(proto.getStage()),
+            proto.getPipelineSize(),
+            proto.getMinBytesRcvd(), proto.getMaxBytesRcvd(),
+            proto.getLatestGenerationStamp(),
+            fromProto(proto.getRequestedChecksum()),
+            (proto.hasCachingStrategy() ?
+                getCachingStrategy(proto.getCachingStrategy()) :
+              CachingStrategy.newDefaultStrategy()),
+            (proto.hasAllowLazyPersist() ? proto.getAllowLazyPersist() : false),
+            (proto.hasPinning() ? proto.getPinning(): false),
+            (PBHelper.convertBooleanList(proto.getTargetPinningsList())),
+            proto.getReplicationPriority(),
+            proto.getFlowName(),
+            proto.getFullPipelineSize());
+      }
     } finally {
      if (traceScope != null) traceScope.close();
     }

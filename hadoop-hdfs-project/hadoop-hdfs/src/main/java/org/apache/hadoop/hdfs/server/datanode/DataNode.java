@@ -2302,7 +2302,7 @@ public class DataNode extends ReconfigurableBase
     final CachingStrategy cachingStrategy;
     final float replicationPriority;
     final String flowName;
-    final int pipelineSize; 
+    final int fullPipelineSize; 
 
     /**
      * Connect to the first item in the target list.  Pass along the 
@@ -2331,7 +2331,7 @@ public class DataNode extends ReconfigurableBase
           new CachingStrategy(true, getDnConf().readaheadLength);
       this.replicationPriority = repPriority;
       this.flowName = flowName;
-      this.pipelineSize = pipelineSize;
+      this.fullPipelineSize = pipelineSize;
     }
 
     /**
@@ -2382,11 +2382,10 @@ public class DataNode extends ReconfigurableBase
         blockSender = new BlockSender(b, 0, b.getNumBytes(), 
             false, false, true, DataNode.this, null, cachingStrategy);
         DatanodeInfo srcNode = new DatanodeInfo(bpReg);
-        //TODO modify writeblock to send extract details
-        new Sender(out).writeBlock(b, targetStorageTypes[0], accessToken,
+        new Sender(out).FCFSwriteBlock(b, targetStorageTypes[0], accessToken,
             clientname, targets, targetStorageTypes, srcNode,
             stage, 0, 0, 0, 0, blockSender.getChecksum(), cachingStrategy,
-            false, false, null);
+            false, false, null,replicationPriority,flowName,fullPipelineSize);
 
         // send data & checksum
         blockSender.sendBlock(out, unbufOut, null);

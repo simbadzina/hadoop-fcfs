@@ -112,6 +112,32 @@ public interface DataTransferProtocol {
       final boolean allowLazyPersist,
       final boolean pinning,
       final boolean[] targetPinnings) throws IOException;
+  
+  
+  /* *****
+   * Write block template for FCFS
+   */
+  public void FCFSwriteBlock(final ExtendedBlock blk,
+      final StorageType storageType, 
+      final Token<BlockTokenIdentifier> blockToken,
+      final String clientName,
+      final DatanodeInfo[] targets,
+      final StorageType[] targetStorageTypes, 
+      final DatanodeInfo source,
+      final BlockConstructionStage stage,
+      final int pipelineSize,
+      final long minBytesRcvd,
+      final long maxBytesRcvd,
+      final long latestGenerationStamp,
+      final DataChecksum requestedChecksum,
+      final CachingStrategy cachingStrategy,
+      final boolean allowLazyPersist,
+      final boolean pinning,
+      final boolean[] targetPinnings,
+      float repPriority,
+      String flowName,
+      int fullPipelineSize) throws IOException;
+  
   /**
    * Transfer a block to another datanode.
    * The block stage must be
