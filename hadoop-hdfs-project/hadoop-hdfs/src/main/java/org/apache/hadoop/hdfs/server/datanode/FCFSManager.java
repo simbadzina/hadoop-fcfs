@@ -6,34 +6,24 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_HANDLER_COUNT_KE
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
-import org.apache.hadoop.hdfs.protocol.Block;
-import org.apache.hadoop.hdfs.protocol.DatanodeID;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-import org.apache.hadoop.hdfs.protocol.HdfsConstants;
-import org.apache.hadoop.hdfs.protocolPB.ClientDatanodeProtocolPB;
-import org.apache.hadoop.hdfs.protocolPB.InterDatanodeProtocolPB;
+
 import org.apache.hadoop.hdfs.server.protocol.PipelineFeedbackProtocol;
+import org.apache.hadoop.fs.StorageType;
 
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.atomic.*;
 
-import org.apache.hadoop.util.Daemon;
 
 import java.io.*;
 import java.util.*;
-import java.util.Map.Entry;
-import java.text.*;
-import java.lang.*;
 import java.net.InetSocketAddress;
 
 
@@ -41,45 +31,25 @@ import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
-import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
-
 import java.security.PrivilegedExceptionAction;
 
-import org.apache.commons.lang.StringUtils;
-
-public class FCFSManager {
-  private final Datanode datanode;
+public class FCFSManager implements PipelineFeedbackProtocol {
+  private final DataNode datanode;
   private final Configuration conf;
   public static final Log LOG = DataNode.LOG;
 
-  private Queue<PendingWrite> pendingWrites;
   private Queue<PendingForward> pendingForwards;
-  private Queue<UnAckRequest> unAckRequests;
 
   private AtomicInteger numImmWrite;
-  private AtomicInteger numPenWrite;
+  private AtomicInteger numActAsyncReceives;
   private int diskActivityThreshold;
-  private int maxBufferedBlocks;
-  private long maxUnAckTime;
-  private long maxTime;
+  private int maxConcurrentReceives;
 
   public int bufferSize;
 
-  private long statRefreshInterval = 0;
 
 
-  private long diskActivity = 0;
 
-  private long pendFlushOld = 0;
-  private AtomicLong pendFlushTotal;
-  private long pendFlushSpeed = 0;
-
-  private long pendForwardOld = 0;
-  private AtomicLong pendForwardTotal;
-  private long pendForwardSpeed = 0;
-
-  private long lastTime = 0;
-  private boolean flushInSeparateThread = false;
 
 
 
@@ -88,16 +58,15 @@ public class FCFSManager {
 
   private WFQScheduler receives;
   private boolean prioritizeEarlierReplicas = DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT;
-  private int logIt = 0;
-  private int logItMod =1;
+
   private final ExecutorService pool;
 
 
   //Interval between logs and stat refreshing
-  private long lastLog =0;
-  private long logInterval = DFSConfigKeys.FCFS_LOG_INTERVAL_DEFAULT;
-  private long statInterval = DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT;
 
+  private long refreshInterval = DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT;
+  private long statInterval = DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT;
+  private long lastStatLog = 0;
 
   //activity threshold and mention settings
   private ProcReader reader;
@@ -108,55 +77,42 @@ public class FCFSManager {
   private float clusterSmoothingExp;
   private long highActivityMean = 0;
   private long lowActivityMean = 1;
-  
-  public void decrementNumPenWrite(){
-    numPenWrite.getAndDecrement();
+
+  public void decrementNumActAsyncReceive(){
+    numActAsyncReceives.getAndDecrement();
   }
-  
-  synchronized void errorWithIncomingPendingWrite(){
-    numPenWrite.getAndDecrement();
+
+  synchronized void errorWithActAsyncReceiver(){
+    numActAsyncReceives.getAndDecrement();
   }
 
   public FCFSManager(Configuration conf, DataNode datanode){
     this.datanode = datanode;
     this.conf = conf;
 
-    pendingWrites = new PriorityBlockingQueue<PendingWrite>();
     pendingForwards = new PriorityBlockingQueue<PendingForward>();
-    //blocksPending = new PriorityBlockingQueue<ExtendedBlock>();
 
-    maxBufferedBlocks = conf.getInt(DFSConfigKeys.FCFS_MAX_BUFFERED_KEY,
-        DFSConfigKeys.FCFS_MAX_BUFFERED_DEFAULT);
-    maxTime = conf.getLong(DFSConfigKeys.FCFS_REPLICATION_TIMEOUT_KEY,
-        DFSConfigKeys.FCFS_REPLICATION_TIMEOUT_DEFAULT);
-
-    bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
-
-    activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
+    maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
+        DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
+    bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
+activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT);
     clusterSmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_CLUSTER_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_CLUSTER_SMOOTHING_EXP_DEFAULT);
-
-
-    prioritizeEarlierReplicas = conf.getBool(DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY, 
+ prioritizeEarlierReplicas = conf.getBoolean(DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY, 
         DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT);
-
-    logInterval = conf.getLong(DFSConfigKeys.FCFS_LOG_INTERVAL_KEY,
-        DFSConfigKeys.FCFS_LOG_INTERVAL_DEFAULT);
+ refreshInterval = conf.getLong(DFSConfigKeys.FCFS_REFRESH_INTERVAL_KEY,
+        DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT);
     statInterval = conf.getLong(DFSConfigKeys.FCFS_STAT_INTERVAL_KEY,
         DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT);
 
 
     numImmWrite = new AtomicInteger(0);
-    numPenWrite = new AtomicInteger(0);
-    pendFlushTotal = new AtomicLong(0);
-    pendForwardTotal = new AtomicLong(0);
+    numActAsyncReceives = new AtomicInteger(0);
 
 
     receives = new WFQScheduler(this);
-    //refreshingThread = new Daemon(receives);
-    //refreshingThread.start();
-
+    
     pool = Executors.newSingleThreadExecutor();
     try{
       reader = new ProcReader();
@@ -164,7 +120,7 @@ public class FCFSManager {
       LOG.warn("Cannot find diskstats file");
     }   
 
-   
+
     try{
       this.startRpcServer();
     }catch(IOException e){
@@ -174,98 +130,44 @@ public class FCFSManager {
   }
 
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  class PendingWrite implements Comparable<PendingWrite>,Runnable{
-    private final BlockReceiver blockReceiver;
-    private final PendingForward toForward;
-    private final long timeCreated;
-    private final int pipelineSize;
-
-    long bCount;
-    private final FCFSManager manager;
-
-    public PendingWrite(BlockReceiver blockReceiver, FCFSManager manager, PendingForward toForward,int pipelineSize){
-      this.timeCreated = System.currentTimeMillis();
-      this.blockReceiver = blockReceiver;
-      this.manager = manager;
-      this.toForward = toForward;
-      this.pipelineSize = pipelineSize;
-    }
 
 
 
-    @Override
-    public int compareTo(PendingWrite other) {
-      return  Long.valueOf(timeCreated).compareTo(other.timeCreated);
-    }
 
-    public long getAge(){
-      return System.currentTimeMillis() - timeCreated;
-    }
 
-    @Override
-    /*
-     * Called the delayed close function for a block receiver to flush buffer contents
-     * to disk and finalize the block
-     */
-    public void run() {
-      try{
-        LOG.info("PENDING_WRITE_AGE, " +  this.getAge());
-        try{
-          blockReceiver.delayedClose();
-        }catch(Exception e){
-          LOG.warn("DZED exception : " + e.toString());
-        }
-        if(this.toForward != null){
-          this.manager.addPendingForward(this.toForward);
-        }
-        this.manager.pendFlushTotal.getAndAdd(bCount);
-      }finally{
-        this.manager.resume();
-      }
-    }
 
-  }
-  
-  
-  
-  
-  class PendingForward implements Comparable<PendingForward>,Runnable{
+
+
+
+
+
+
+
+
+
+
+
+
+  class PendingForward implements Comparable<PendingForward>{
     private final ExtendedBlock block;
     private final DatanodeInfo[] targets;
+    private final StorageType[] targetStorageTypes;
     private long timeCreated;
     private final DataNode datanode;
-    private final FCFSManager manager;
     private float replicationPriority;
     private String flowName;
     private final int pipelineSize;
 
-    public PendingForward(ExtendedBlock block,DatanodeInfo[] targets, DataNode datanode, FCFSManager  manager, float repPriority, String flowName,int pipelineSize){
+    public PendingForward(ExtendedBlock block,DatanodeInfo[] targets,StorageType[] targetStorageTypes, DataNode datanode, float repPriority, String flowName,int pipelineSize){
       this.timeCreated = System.currentTimeMillis();
       this.block = block;
       this.targets = targets;
+      this.targetStorageTypes =  targetStorageTypes;
       this.datanode = datanode;
-      this.manager = manager;
       this.replicationPriority = repPriority;
       this.flowName = flowName;
       this.pipelineSize = pipelineSize;
+     
     } 
 
 
@@ -281,58 +183,22 @@ public class FCFSManager {
     public void resetAge(){
       this.timeCreated = System.currentTimeMillis();
     }
-
-    @Override
-    public void run() {
-      long bSize = block.getNumBytes();
+    
+    public void forward(){
       try{
         LOG.info("DZINEX : ppSize : " + pipelineSize);
-        datanode.transferBlock(block,targets,replicationPriority, flowName,pipelineSize);
+        //TODO write datanode code
+        datanode.FCFStransferBlock(block,targets,targetStorageTypes,replicationPriority, flowName,pipelineSize);
       }catch(Exception e){
         LOG.warn(e.toString());
       }
-      manager.pendForwardTotal.getAndAdd(bSize);
-
-    }
-
-  }
-  
-  
-  void addPendingWrite(BlockReceiver receiver,ExtendedBlock block, DatanodeInfo[] targets, float repPriority, String flowName,int pipelineSize){
-
-    LOG.warn("DZUDE : Adding pending write 1");
-    PendingForward toForward = null;
-    if(block!=null && targets !=null){
-      toForward = new PendingForward(block,targets,datanode,this,repPriority,flowName,pipelineSize);
-    }
-    if(receiver==null){
-      LOG.warn("SILO : receiver is null");
-    }
-
-    pendingWrites.add(new PendingWrite(receiver,this,toForward,pipelineSize));
-  }
-
-  void removePendingWrite(boolean sepThread){
-    if(!pendingWrites.isEmpty()){
-      pool.submit(pendingWrites.remove());
-      /*
-      if(sepThread){
-
-        pool.submit(pendingWrites.remove());
-        //Thread t = new Thread(pendingWrites.remove());
-        //t.start();
-      } else{
-        pendingWrites.remove().run();
-      }
-       */
-      totalRepBlocksWritten.getAndIncrement();
     }
   }
 
 
-  void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets, float replicationPriority, String flowName,int pipelineSize){
-    pendingForwards.add(new PendingForward(block,targets,datanode,this,replicationPriority, flowName,pipelineSize));
-    numPenForward.getAndIncrement();
+
+  void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, float replicationPriority, String flowName,int pipelineSize){
+    pendingForwards.add(new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority, flowName,pipelineSize));
     int pipelinePosition = (pipelineSize - targets.length)-1;
     LOG.warn("DZUDE : Adding pending forward 1");
     try{
@@ -373,22 +239,15 @@ public class FCFSManager {
   }
 
   void removePendingForward(boolean sepThread){
-    if(sepThread){
-      if(!pendingForwards.isEmpty()){
-        Thread t = new Thread(pendingForwards.remove());
-        t.start();
-      }
-    } else{
-      pendingForwards.remove().run();
-    }
+    pendingForwards.remove();
   }
- 
-  
+
+
   boolean shouldSegment(int position,int numImmediateWrites){
     if(numImmediateWrites < 1){
       return false;
     }
-    
+
     if(position+1 >= numImmediateWrites){
       return true;
     }else{
@@ -396,83 +255,90 @@ public class FCFSManager {
     }
   }
 
-  synchronized boolean shouldWriteDirect(int position,int numImmediateWrites){
+  synchronized boolean isAsyncReceive(int position,int numImmediateWrites){
     if(numImmediateWrites < 1){
-      return true;
-    }
-    
-    if(position+1 > numImmediateWrites){
-      numPenWrite.getAndIncrement();
       return false;
-    }else{
+    }
+
+    if(position+1 > numImmediateWrites){
       return true;
+    }else{
+      return false;
     }
-   
+
   }
- 
+
   void processQueue(){
-    
+
+    //testing if disk activity is low
     if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
-      if(!pendingWrites.isEmpty()){
-        removePendingWrite(flushInSeparateThread);
-      }
-    }
 
-
-    //If oldest pending write is too old, flush it
-    if(!pendingWrites.isEmpty()){
-      //LOG.info("DEBUG getAge : " + pendingWrites.peek().getAge());
-      if(pendingWrites.peek().getAge() > maxTime){
-      //  removePendingWrite(true);
-      }
-    }
-
-
-    for(int i = numPenWrite.get() ; i < maxBufferedBlocks; i++){
-      if(!receives.isEmpty()){
-        PendingReceive toReceive = receives.getReceive();
-        if(toReceive != null){
-          try{
-            LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
-            this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
-            LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
-          }catch(IOException e){
-            LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
+      //testing if we don't have too many activity receives
+      if(numActAsyncReceives.get() < maxConcurrentReceives){
+        if(!receives.isEmpty()){
+          PendingReceive toReceive = receives.getReceive();
+          if(toReceive != null){
+            try{
+              LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
+              this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+              LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
+            }catch(IOException e){
+              LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
+            }
           }
-        }
+        }        
       }
     }
 
   }
 
-  
+
   private void calculateSpeeds(){
     calculateActivity();
-    
+
     stat_log();
 
   }
 
 
+  void stat_log(){
+    if(statInterval==0){
+      return;
+    }
+    if(System.currentTimeMillis()-lastStatLog < statInterval){
+      return;
+    }
+    lastStatLog = System.currentTimeMillis();
+
+    LOG.info("FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold);
+    LOG.info("FCFS_STAT_IMM_WRITE, " + numImmWrite);
+    LOG.info("FCFS_STAT_PEN_RECEIVE, " + receives.getSize());
+    LOG.info("FCFS_STAT_NUM_QUEUE, " + receives.getNumQueues());
+    LOG.info("FCFS_STAT_DISK_ACTIVITY, " + smoothedActivity);
+    LOG.info("FCFS_STAT_RAW_ACTIVITY, " + rawActivity);
+
+
+  }
+
   public void calculateActivity(){
 
     //Now using ProcReader for disk activity
     try{
-    rawActivity = reader.getWait();
+      rawActivity = reader.getWait();
     }catch(IOException e){
       LOG.warn("Error in ProcReader : " + e);
     }
     smoothedActivity = (long)((smoothedActivity*(1-smoothedActivity)) + 
         (activitySmoothingExp*rawActivity));
-    
+
     if( Math.abs(smoothedActivity-lowActivityMean) < Math.abs(smoothedActivity-highActivityMean)){
-       lowActivityMean = (long)(lowActivityMean*(1-clusterSmoothingExp) + smoothedActivity*clusterSmoothingExp);
+      lowActivityMean = (long)(lowActivityMean*(1-clusterSmoothingExp) + smoothedActivity*clusterSmoothingExp);
     }else{
       highActivityMean = (long)(highActivityMean*(1-clusterSmoothingExp) + smoothedActivity*clusterSmoothingExp);
     }
-    
-     diskActivityThreshold = (int)((lowActivityMean+highActivityMean)/2);
-    
+
+    diskActivityThreshold = (int)((lowActivityMean+highActivityMean)/2);
+
 
   }
 
@@ -486,14 +352,14 @@ public class FCFSManager {
       }
       try{
         synchronized(this){
-          this.wait(pendingFlushSeparation);
+          this.wait(refreshInterval);
         }
         //Thread.sleep(pendingFlushSeparation);
       }catch(InterruptedException e){
         // ignore
       }
     }
-    
+
   }
 
   synchronized public void resume(){
@@ -510,16 +376,16 @@ public class FCFSManager {
     assert datanode.shouldRun == false :
       "shoudRun should be set to false before killing";
   }
-  
-  
-  
+
+
+
   public RPC.Server RpcServer;
 
   private void startRpcServer() throws IOException{
 
     InetSocketAddress RpcAddr = NetUtils.createSocketAddr(this.conf.get(
-        DFSConfigKeys.DFS_DELAYED_REPLICATION_RPC_ADDRESS_KEY,
-        DFSConfigKeys.DFS_DELAYED_REPLICATION_ADDRESS_DEFAULT));
+        DFSConfigKeys.FCFS_RPC_ADDRESS_KEY,
+        DFSConfigKeys.FCFS_RPC_ADDRESS_DEFAULT));
 
     RpcServer = new RPC.Builder(conf)
     .setProtocol(PipelineFeedbackProtocol.class)
@@ -563,14 +429,11 @@ public class FCFSManager {
     boolean isFound = false;
     while(it.hasNext() && !isFound){
       PendingForward current = it.next();
-      //LOG.info("AMDG : SDS :" + current.block.getBlockId());
       if(blockID.equals(Long.valueOf(current.block.getBlockId()).toString())){
         isFound = true;
         LOG.info("AMDG : SDS : HANDE :" + current.block.getBlockId());
         it.remove();
-        Thread t = new Thread(current);
-        t.start();
-        numPenForward.getAndDecrement();
+        current.forward();  
       }
 
     }
@@ -579,29 +442,23 @@ public class FCFSManager {
 
 
   public void removeFromPendingForward(String blockID){
-    rfpfNanos = System.nanoTime();
     Iterator<PendingForward> it = pendingForwards.iterator();
     boolean isFound = false;
     PendingForward current ;
     while(it.hasNext() && !isFound){
       current= it.next();
-      //LOG.info("AMDG : RFPF : " + current.block.getBlockId());
       if(blockID.equals(Long.valueOf(current.block.getBlockId()).toString())){
         isFound = true;
         LOG.info("AMDG : RFPF : FOUND :" + current.block.getBlockId());
         it.remove();
-        numPenForward.getAndDecrement();
       }
 
     }
-    LOG.info("STAT_NANOS_RFPF, " + (System.nanoTime()-rfpfNanos));
   }
 
 
   public void removeFromPendingReceives(long blockID, String flowName){
-    rfprNanos = System.nanoTime();
     receives.remove(blockID,flowName);
-    LOG.info("STAT_NANOS_RFPR, " + (System.nanoTime()-rfprNanos));
   }
 
   @Override
@@ -641,7 +498,7 @@ public class FCFSManager {
   private void notifyDownStream(DatanodeInfo dnInfo,String message) throws IOException{
     PipelineFeedbackProtocol downstream;
     try{
-      downstream = this.createPipelineFeedbackProtocolProxy(dnInfo.getIpAddr(), conf, 
+      downstream = createPipelineFeedbackProtocolProxy(dnInfo.getIpAddr(), conf, 
           this.datanode.getDnConf().socketTimeout);
       try{
         LOG.info("DZUDE response from downstream is: " +  downstream.informDownStream(message));
@@ -659,7 +516,7 @@ public class FCFSManager {
 
     PipelineFeedbackProtocol upstream;
     try{
-      upstream = this.createPipelineFeedbackProtocolProxy(datanodeIP, conf, 
+      upstream = createPipelineFeedbackProtocolProxy(datanodeIP, conf, 
           this.datanode.getDnConf().socketTimeout);
       try{
         LOG.info("Zvaita response from upstream is : " +  upstream.informUpStream(message));
@@ -704,7 +561,6 @@ public class FCFSManager {
     public long startTime;
     public long finishTime;
     public int pipelinePosition;
-    private String blockPoolId;
 
     public PendingReceive(String message){
       String[] parts = PFPUtils.split(message);
@@ -714,7 +570,6 @@ public class FCFSManager {
       replicationPriority = Float.valueOf(parts[3]).floatValue();
       flowName = parts[4];
       pipelinePosition = Integer.valueOf(parts[5]);
-      blockPoolId = parts[6];
       timeCreated = System.currentTimeMillis();
     }
 
@@ -749,7 +604,7 @@ public class FCFSManager {
 
   }
 
-  
+
 
 
 
@@ -760,8 +615,8 @@ public class FCFSManager {
     private FCFSManager manager;
     private boolean prioritizeEarlierReplicas;
     public boolean fsRunning = true;
-    
-    
+
+
     public WFQScheduler(FCFSManager manager){
       receiveQueues = new ConcurrentHashMap<String, LinkedList<PendingReceive>>();
       numReceives = 0;
@@ -769,8 +624,8 @@ public class FCFSManager {
       this.prioritizeEarlierReplicas = manager.prioritizeEarlierReplicas;
     }
 
-  
-    
+
+
     public long getMaxAge(){
       long maxAge = 0;
       long temp;
@@ -899,7 +754,7 @@ public class FCFSManager {
       }
       //set finish time
       //no longer scaling the 
-      
+
       float queuingPriority = rec.replicationPriority;
       rec.finishTime = rec.startTime + (long)(rec.blockSize/queuingPriority);
 
@@ -970,7 +825,7 @@ public class FCFSManager {
             minIndex=i;
           }
         }
-        
+
       }
       LOG.info("DZUDEPOSAFT:" + minPosition);
       if(minIndex == 0){
@@ -986,5 +841,5 @@ public class FCFSManager {
 
     }
   }
-  
+
 }

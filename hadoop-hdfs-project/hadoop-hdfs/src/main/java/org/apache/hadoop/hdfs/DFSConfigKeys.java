@@ -48,18 +48,18 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
 
   public static final String  FCFS_NUM_IMMEDIATE_KEY = "fcfs.num-immediate";
   public static final int     FCFS_NUM_IMMEDIATE_DEFAULT = 0;
-  public static final String  FCFS_LOG_INTERVAL_KEY = "fcfs.log.interval";
-  public static final int     FCFS_LOG_INTERVAL_DEFAULT = 5000;
+  public static final String  FCFS_REFRESH_INTERVAL_KEY = "fcfs.log.interval";
+  public static final int     FCFS_REFRESH_INTERVAL_DEFAULT = 5000;
   public static final String  FCFS_STAT_INTERVAL_KEY = "fcfs.stat.interval";
   public static final int     FCFS_STAT_INTERVAL_DEFAULT = 5000;
   public static final String  FCFS_ACTIVITY_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
   public static final float   FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT = 0.1f;
   public static final String  FCFS_CLUSTER_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
   public static final float   FCFS_CLUSTER_SMOOTHING_EXP_DEFAULT = 0.01f;
-  public static final String  FCFS_REPLICATION_KEY = "fcfs.replication-priority";
-  public static final float   FCFS_REPLICATION_DEFAULT = 1.0f;
-  public static final String  FCFS_MAX_BUFFERED_KEY = "fcfs.max-buffered";
-  public static final int     FCFS_MAX_BUFFERED_DEFAULT = 2;
+  public static final String  FCFS_REPLICATION_PRIORITY_KEY = "fcfs.replication-priority";
+  public static final float   FCFS_REPLICATION_PRIORITY_DEFAULT = 1.0f;
+  public static final String  FCFS_MAX_CONCURRENT_RECEIVES_KEY = "fcfs.max-concurrent-receives";
+  public static final int     FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT = 10;
   public static final String  FCFS_REPLICATION_TIMEOUT_KEY = "fcfs.replication-timeout";
   public static final int     FCFS_REPLICATION_TIMEOUT_DEFAULT = 300000;
   public static final String  FCFS_RPC_ADDRESS_KEY = "dfs.delayedreplication.rpc.address";

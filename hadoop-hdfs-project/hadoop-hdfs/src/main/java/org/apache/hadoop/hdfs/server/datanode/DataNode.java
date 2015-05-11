@@ -1908,6 +1908,9 @@ public class DataNode extends ReconfigurableBase
     LOG.warn(msg);
   }
 
+  
+  
+  
   private void transferBlock(ExtendedBlock block, DatanodeInfo[] xferTargets,
       StorageType[] xferTargetStorageTypes) throws IOException {
     BPOfferService bpos = getBPOSForBlock(block);
@@ -1971,6 +1974,7 @@ public class DataNode extends ReconfigurableBase
     }
   }
 
+ 
   void transferBlocks(String poolId, Block blocks[],
       DatanodeInfo xferTargets[][], StorageType[][] xferTargetStorageTypes) {
     for (int i = 0; i < blocks.length; i++) {
@@ -1982,6 +1986,75 @@ public class DataNode extends ReconfigurableBase
       }
     }
   }
+  
+  
+  /*
+   * Transferring an asynchronous blcoks
+   */
+  
+  public void FCFStransferBlock(ExtendedBlock block, DatanodeInfo[] xferTargets,
+      StorageType[] xferTargetStorageTypes,float repPriority, String flowName, int pipelineSize) throws IOException {
+    BPOfferService bpos = getBPOSForBlock(block);
+    DatanodeRegistration bpReg = getDNRegistrationForBP(block.getBlockPoolId());
+
+    boolean replicaNotExist = false;
+    boolean replicaStateNotFinalized = false;
+    boolean blockFileNotExist = false;
+    boolean lengthTooShort = false;
+
+    try {
+      data.checkBlock(block, block.getNumBytes(), ReplicaState.FINALIZED);
+    } catch (ReplicaNotFoundException e) {
+      replicaNotExist = true;
+    } catch (UnexpectedReplicaStateException e) {
+      replicaStateNotFinalized = true;
+    } catch (FileNotFoundException e) {
+      blockFileNotExist = true;
+    } catch (EOFException e) {
+      lengthTooShort = true;
+    } catch (IOException e) {
+      // The IOException indicates not being able to access block file,
+      // treat it the same here as blockFileNotExist, to trigger 
+      // reporting it as a bad block
+      blockFileNotExist = true;      
+    }
+
+    if (replicaNotExist || replicaStateNotFinalized) {
+      String errStr = "Can't send invalid block " + block;
+      LOG.info(errStr);
+      bpos.trySendErrorReport(DatanodeProtocol.INVALID_BLOCK, errStr);
+      return;
+    }
+    if (blockFileNotExist) {
+      // Report back to NN bad block caused by non-existent block file.
+      reportBadBlock(bpos, block, "Can't replicate block " + block
+          + " because the block file doesn't exist, or is not accessible");
+      return;
+    }
+    if (lengthTooShort) {
+      // Check if NN recorded length matches on-disk length 
+      // Shorter on-disk len indicates corruption so report NN the corrupt block
+      reportBadBlock(bpos, block, "Can't replicate block " + block
+          + " because on-disk length " + data.getLength(block) 
+          + " is shorter than NameNode recorded length " + block.getNumBytes());
+      return;
+    }
+    
+    int numTargets = xferTargets.length;
+    if (numTargets > 0) {
+      StringBuilder xfersBuilder = new StringBuilder();
+      for (int i = 0; i < numTargets; i++) {
+        xfersBuilder.append(xferTargets[i]);
+        xfersBuilder.append(" ");
+      }
+      LOG.info(bpReg + " Starting thread to transfer " + 
+               block + " to " + xfersBuilder);                       
+
+      new Daemon(new FCFSDataTransfer(xferTargets, xferTargetStorageTypes, block,
+          BlockConstructionStage.PIPELINE_SETUP_CREATE, "", repPriority,flowName,pipelineSize)).start();
+    }
+  }
+  
 
   /* ********************************************************************
   Protocol when a client reads data from Datanode (Cur Ver: 9):
@@ -2208,6 +2281,156 @@ public class DataNode extends ReconfigurableBase
       }
     }
   }
+  
+  
+  /* ******************************
+   * Datatransfer for the Flow Controlled File System
+   * 
+   */
+  
+  /**
+   * Used for transferring a block of data.  This class
+   * sends a piece of data to another DataNode.
+   */
+  private class FCFSDataTransfer implements Runnable{
+    final DatanodeInfo[] targets;
+    final StorageType[] targetStorageTypes;
+    final ExtendedBlock b;
+    final BlockConstructionStage stage;
+    final private DatanodeRegistration bpReg;
+    final String clientname;
+    final CachingStrategy cachingStrategy;
+    final float replicationPriority;
+    final String flowName;
+    final int pipelineSize; 
+
+    /**
+     * Connect to the first item in the target list.  Pass along the 
+     * entire target list, the block, and the data.
+     */
+    FCFSDataTransfer(DatanodeInfo targets[], StorageType[] targetStorageTypes,
+        ExtendedBlock b, BlockConstructionStage stage,
+        final String clientname,float repPriority,String flowName, int pipelineSize) {
+      if (DataTransferProtocol.LOG.isDebugEnabled()) {
+        DataTransferProtocol.LOG.debug(getClass().getSimpleName() + ": "
+            + b + " (numBytes=" + b.getNumBytes() + ")"
+            + ", stage=" + stage
+            + ", clientname=" + clientname
+            + ", targets=" + Arrays.asList(targets)
+            + ", target storage types=" + (targetStorageTypes == null ? "[]" :
+            Arrays.asList(targetStorageTypes)));
+      }
+      this.targets = targets;
+      this.targetStorageTypes = targetStorageTypes;
+      this.b = b;
+      this.stage = stage;
+      BPOfferService bpos = blockPoolManager.get(b.getBlockPoolId());
+      bpReg = bpos.bpRegistration;
+      this.clientname = clientname;
+      this.cachingStrategy =
+          new CachingStrategy(true, getDnConf().readaheadLength);
+      this.replicationPriority = repPriority;
+      this.flowName = flowName;
+      this.pipelineSize = pipelineSize;
+    }
+
+    /**
+     * Do the deed, write the bytes
+     */
+    @Override
+    public void run() {
+      xmitsInProgress.getAndIncrement();
+      Socket sock = null;
+      DataOutputStream out = null;
+      DataInputStream in = null;
+      BlockSender blockSender = null;
+      final boolean isClient = clientname.length() > 0;
+      
+      try {
+        final String dnAddr = targets[0].getXferAddr(connectToDnViaHostname);
+        InetSocketAddress curTarget = NetUtils.createSocketAddr(dnAddr);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("Connecting to datanode " + dnAddr);
+        }
+        sock = newSocket();
+        NetUtils.connect(sock, curTarget, dnConf.socketTimeout);
+        sock.setSoTimeout(targets.length * dnConf.socketTimeout);
+
+        //
+        // Header info
+        //
+        Token<BlockTokenIdentifier> accessToken = BlockTokenSecretManager.DUMMY_TOKEN;
+        if (isBlockTokenEnabled) {
+          accessToken = blockPoolTokenSecretManager.generateToken(b, 
+              EnumSet.of(BlockTokenIdentifier.AccessMode.WRITE));
+        }
+
+        long writeTimeout = dnConf.socketWriteTimeout + 
+                            HdfsServerConstants.WRITE_TIMEOUT_EXTENSION * (targets.length-1);
+        OutputStream unbufOut = NetUtils.getOutputStream(sock, writeTimeout);
+        InputStream unbufIn = NetUtils.getInputStream(sock);
+        DataEncryptionKeyFactory keyFactory =
+          getDataEncryptionKeyFactoryForBlock(b);
+        IOStreamPair saslStreams = saslClient.socketSend(sock, unbufOut,
+          unbufIn, keyFactory, accessToken, bpReg);
+        unbufOut = saslStreams.out;
+        unbufIn = saslStreams.in;
+        
+        out = new DataOutputStream(new BufferedOutputStream(unbufOut,
+            DFSUtil.getSmallBufferSize(conf)));
+        in = new DataInputStream(unbufIn);
+        blockSender = new BlockSender(b, 0, b.getNumBytes(), 
+            false, false, true, DataNode.this, null, cachingStrategy);
+        DatanodeInfo srcNode = new DatanodeInfo(bpReg);
+        //TODO modify writeblock to send extract details
+        new Sender(out).writeBlock(b, targetStorageTypes[0], accessToken,
+            clientname, targets, targetStorageTypes, srcNode,
+            stage, 0, 0, 0, 0, blockSender.getChecksum(), cachingStrategy,
+            false, false, null);
+
+        // send data & checksum
+        blockSender.sendBlock(out, unbufOut, null);
+
+        // no response necessary
+        LOG.info(getClass().getSimpleName() + ": Transmitted " + b
+            + " (numBytes=" + b.getNumBytes() + ") to " + curTarget);
+
+        // read ack
+        if (isClient) {
+          DNTransferAckProto closeAck = DNTransferAckProto.parseFrom(
+              PBHelper.vintPrefixed(in));
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(getClass().getSimpleName() + ": close-ack=" + closeAck);
+          }
+          if (closeAck.getStatus() != Status.SUCCESS) {
+            if (closeAck.getStatus() == Status.ERROR_ACCESS_TOKEN) {
+              throw new InvalidBlockTokenException(
+                  "Got access token error for connect ack, targets="
+                   + Arrays.asList(targets));
+            } else {
+              throw new IOException("Bad connect ack, targets="
+                  + Arrays.asList(targets));
+            }
+          }
+        } else {
+          metrics.incrBlocksReplicated();
+        }
+      } catch (IOException ie) {
+        LOG.warn(bpReg + ":Failed to transfer " + b + " to " +
+            targets[0] + " got ", ie);
+        // check if there are any disk problem
+        checkDiskErrorAsync();
+      } finally {
+        xmitsInProgress.getAndDecrement();
+        IOUtils.closeStream(blockSender);
+        IOUtils.closeStream(out);
+        IOUtils.closeStream(in);
+        IOUtils.closeSocket(sock);
+      }
+    }
+  }
+  
+  
 
   /**
    * Returns a new DataEncryptionKeyFactory that generates a key from the
