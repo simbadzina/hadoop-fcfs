@@ -136,7 +136,7 @@ public interface DataTransferProtocol {
       final boolean[] targetPinnings,
       float repPriority,
       String flowName,
-      int fullPipelineSize) throws IOException;
+      int numImmediate) throws IOException;
   
   /**
    * Transfer a block to another datanode.

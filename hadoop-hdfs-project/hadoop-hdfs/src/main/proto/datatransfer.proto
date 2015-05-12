@@ -129,7 +129,7 @@ message OpWriteBlockProto {
 
   optional float replicationPriority = 16 [default = 1.0];
   optional string flowName = 17 [default = ""];
-  optional uint32 fullPipelineSize = 18 [default = 0];
+  optional uint32 numImmediate = 18 [default = 0];
 }
   
 message OpTransferBlockProto {

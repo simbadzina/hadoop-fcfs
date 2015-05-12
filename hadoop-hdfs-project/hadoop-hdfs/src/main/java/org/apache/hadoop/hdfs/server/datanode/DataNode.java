@@ -2042,7 +2042,7 @@ public class DataNode extends ReconfigurableBase
    */
   
   public void FCFStransferBlock(ExtendedBlock block, DatanodeInfo[] xferTargets,
-      StorageType[] xferTargetStorageTypes,float repPriority, String flowName, int pipelineSize) throws IOException {
+      StorageType[] xferTargetStorageTypes,float repPriority, String flowName, int numImmediate,int pipelineSize) throws IOException {
     BPOfferService bpos = getBPOSForBlock(block);
     DatanodeRegistration bpReg = getDNRegistrationForBP(block.getBlockPoolId());
 
@@ -2100,7 +2100,7 @@ public class DataNode extends ReconfigurableBase
                block + " to " + xfersBuilder);                       
 
       new Daemon(new FCFSDataTransfer(xferTargets, xferTargetStorageTypes, block,
-          BlockConstructionStage.PIPELINE_SETUP_CREATE, "", repPriority,flowName,pipelineSize)).start();
+          BlockConstructionStage.PIPELINE_SETUP_CREATE, "", repPriority,flowName,numImmediate,pipelineSize)).start();
     }
   }
   
@@ -2351,7 +2351,8 @@ public class DataNode extends ReconfigurableBase
     final CachingStrategy cachingStrategy;
     final float replicationPriority;
     final String flowName;
-    final int fullPipelineSize; 
+    final int numImmediate;
+    final int pipelineSize; 
 
     /**
      * Connect to the first item in the target list.  Pass along the 
@@ -2359,7 +2360,7 @@ public class DataNode extends ReconfigurableBase
      */
     FCFSDataTransfer(DatanodeInfo targets[], StorageType[] targetStorageTypes,
         ExtendedBlock b, BlockConstructionStage stage,
-        final String clientname,float repPriority,String flowName, int pipelineSize) {
+        final String clientname,float repPriority,String flowName,int numImmediate, int pipelineSize) {
       if (DataTransferProtocol.LOG.isDebugEnabled()) {
         DataTransferProtocol.LOG.debug(getClass().getSimpleName() + ": "
             + b + " (numBytes=" + b.getNumBytes() + ")"
@@ -2380,7 +2381,8 @@ public class DataNode extends ReconfigurableBase
           new CachingStrategy(true, getDnConf().readaheadLength);
       this.replicationPriority = repPriority;
       this.flowName = flowName;
-      this.fullPipelineSize = pipelineSize;
+      this.numImmediate = numImmediate;
+      this.pipelineSize = pipelineSize;
     }
 
     /**
@@ -2433,8 +2435,8 @@ public class DataNode extends ReconfigurableBase
         DatanodeInfo srcNode = new DatanodeInfo(bpReg);
         new Sender(out).FCFSwriteBlock(b, targetStorageTypes[0], accessToken,
             clientname, targets, targetStorageTypes, srcNode,
-            stage, 0, 0, 0, 0, blockSender.getChecksum(), cachingStrategy,
-            false, false, null,replicationPriority,flowName,fullPipelineSize);
+            stage, pipelineSize, 0, 0, 0, blockSender.getChecksum(), cachingStrategy,
+            false, false, null,replicationPriority,flowName,numImmediate);
 
         // send data & checksum
         blockSender.sendBlock(out, unbufOut, null);

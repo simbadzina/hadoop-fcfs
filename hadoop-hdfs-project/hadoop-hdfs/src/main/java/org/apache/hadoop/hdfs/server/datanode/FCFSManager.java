@@ -127,24 +127,6 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
   }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   class PendingForward implements Comparable<PendingForward>{
     private final ExtendedBlock block;
     private final DatanodeInfo[] targets;
@@ -153,9 +135,10 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     private final DataNode datanode;
     private float replicationPriority;
     private String flowName;
+    private int numImmediate;
     private final int pipelineSize;
 
-    public PendingForward(ExtendedBlock block,DatanodeInfo[] targets,StorageType[] targetStorageTypes, DataNode datanode, float repPriority, String flowName,int pipelineSize){
+    public PendingForward(ExtendedBlock block,DatanodeInfo[] targets,StorageType[] targetStorageTypes, DataNode datanode, float repPriority, String flowName,int numImmediate,int pipelineSize){
       this.timeCreated = System.currentTimeMillis();
       this.block = block;
       this.targets = targets;
@@ -163,6 +146,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       this.datanode = datanode;
       this.replicationPriority = repPriority;
       this.flowName = flowName;
+      this.numImmediate = numImmediate;
       this.pipelineSize = pipelineSize;
      
     } 
@@ -184,8 +168,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     public void forward(){
       try{
         LOG.info("DZINEX : ppSize : " + pipelineSize);
-        //TODO write datanode code
-        datanode.FCFStransferBlock(block,targets,targetStorageTypes,replicationPriority, flowName,pipelineSize);
+        datanode.FCFStransferBlock(block,targets,targetStorageTypes,replicationPriority, flowName,numImmediate,pipelineSize);
       }catch(Exception e){
         LOG.warn(e.toString());
       }
@@ -194,8 +177,8 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
 
 
-  void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, float replicationPriority, String flowName,int pipelineSize){
-    pendingForwards.add(new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority, flowName,pipelineSize));
+  public void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, float replicationPriority, String flowName,int numImmediate,int pipelineSize){
+    pendingForwards.add(new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority, flowName,numImmediate,pipelineSize));
     int pipelinePosition = (pipelineSize - targets.length)-1;
     LOG.warn("DZUDE : Adding pending forward 1");
     try{
@@ -214,7 +197,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     }
   }
 
-  void addPendingForward(PendingForward toForward){
+  private void addPendingForward(PendingForward toForward){
     toForward.resetAge();
     pendingForwards.add(toForward);
     int pipelinePosition = (toForward.pipelineSize - toForward.targets.length)-1;

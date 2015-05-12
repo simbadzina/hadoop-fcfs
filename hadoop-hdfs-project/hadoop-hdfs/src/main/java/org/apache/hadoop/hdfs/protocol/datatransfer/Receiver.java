@@ -174,7 +174,7 @@ public abstract class Receiver implements DataTransferProtocol {
             (PBHelper.convertBooleanList(proto.getTargetPinningsList())),
             proto.getReplicationPriority(),
             proto.getFlowName(),
-            proto.getFullPipelineSize());
+            proto.getNumImmediate());
       }
     } finally {
      if (traceScope != null) traceScope.close();

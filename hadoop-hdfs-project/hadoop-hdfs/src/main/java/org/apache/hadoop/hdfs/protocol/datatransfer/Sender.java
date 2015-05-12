@@ -177,7 +177,7 @@ public class Sender implements DataTransferProtocol {
       final CachingStrategy cachingStrategy,
       final boolean allowLazyPersist,
       final boolean pinning,
-      final boolean[] targetPinnings,float repPriority,String flowName, int fullPipelineSize) throws IOException {
+      final boolean[] targetPinnings,float repPriority,String flowName, int numImmediate) throws IOException {
     ClientOperationHeaderProto header = DataTransferProtoUtil.buildClientHeader(
         blk, clientName, blockToken);
     
@@ -201,7 +201,7 @@ public class Sender implements DataTransferProtocol {
       .addAllTargetPinnings(PBHelper.convert(targetPinnings, 1))
       .setReplicationPriority(repPriority)
       .setFlowName(flowName)
-      .setFullPipelineSize(fullPipelineSize);
+      .setNumImmediate(numImmediate);
     
     if (source != null) {
       proto.setSource(PBHelper.convertDatanodeInfo(source));

@@ -48,6 +48,7 @@ import java.util.Arrays;
 
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.fs.StorageType;
+import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.DFSUtil;
 import org.apache.hadoop.hdfs.ExtendedBlockId;
 import org.apache.hadoop.hdfs.HdfsConfiguration;
@@ -89,6 +90,7 @@ import org.apache.hadoop.util.DataChecksum;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.ByteString;
+
 import org.apache.hadoop.util.Time;
 
 
@@ -606,6 +608,7 @@ class DataXceiver extends Receiver implements Runnable {
   }
 
   @Override
+  
   public void writeBlock(final ExtendedBlock block,
       final StorageType storageType, 
       final Token<BlockTokenIdentifier> blockToken,
@@ -622,7 +625,34 @@ class DataXceiver extends Receiver implements Runnable {
       CachingStrategy cachingStrategy,
       final boolean allowLazyPersist,
       final boolean pinning,
-      final boolean[] targetPinnings) throws IOException {
+      final boolean[] targetPinnings) throws IOException{
+    
+    FCFSwriteBlock(block,storageType, blockToken,clientname, targets,
+    targetStorageTypes, srcDataNode, stage, pipelineSize, minBytesRcvd,
+    maxBytesRcvd, latestGenerationStamp, requestedChecksum, cachingStrategy,
+    allowLazyPersist, pinning, targetPinnings,DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT,DFSConfigKeys.FCFS_FLOW_NAME_DEFAULT,DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT);
+  }
+  
+  public void FCFSwriteBlock(final ExtendedBlock block,
+      final StorageType storageType, 
+      final Token<BlockTokenIdentifier> blockToken,
+      final String clientname,
+      final DatanodeInfo[] targets,
+      final StorageType[] targetStorageTypes, 
+      final DatanodeInfo srcDataNode,
+      final BlockConstructionStage stage,
+      final int pipelineSize,
+      final long minBytesRcvd,
+      final long maxBytesRcvd,
+      final long latestGenerationStamp,
+      DataChecksum requestedChecksum,
+      CachingStrategy cachingStrategy,
+      final boolean allowLazyPersist,
+      final boolean pinning,
+      final boolean[] targetPinnings,
+      final float replicationPriority,
+      final String flowName,
+      final int numImmediate) throws IOException {
     previousOpClientName = clientname;
     updateCurrentThreadName("Receiving block " + block);
     final boolean isDatanode = clientname.length() == 0;
@@ -635,6 +665,18 @@ class DataXceiver extends Receiver implements Runnable {
       throw new IOException(stage + " does not support multiple targets "
           + Arrays.asList(targets));
     }
+    
+    
+    /*******************************
+     * Printing info used by FCFS
+     */
+    LOG.info("FCFS_INFO" + 
+     "\nBLOCK         : " + block +
+     "\nPIPELINESIZE  : " + pipelineSize +
+     "\nNUM_IMMEDIATE : " + numImmediate + 
+     "\nPRIORITY      : " + replicationPriority + 
+     "\nFLOW_NAME     : " + flowName);
+    
     
     if (LOG.isDebugEnabled()) {
       LOG.debug("opWriteBlock: stage=" + stage + ", clientname=" + clientname 

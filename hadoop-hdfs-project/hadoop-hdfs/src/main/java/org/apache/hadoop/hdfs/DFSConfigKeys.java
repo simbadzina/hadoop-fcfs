@@ -67,6 +67,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_RPC_ADDRESS_DEFAULT = "0.0.0.0:" + FCFS_RPC_DEFAULT_PORT;
   public static final String  FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY = "fcfs.prioritize-earlier-replicas";
   public static final boolean FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT = true;
+  public static final String  FCFS_FLOW_NAME_DEFAULT = "";
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
