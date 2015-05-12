@@ -670,9 +670,12 @@ class DataXceiver extends Receiver implements Runnable {
     /*******************************
      * Printing info used by FCFS
      */
+    
+    int position = pipelineSize - targets.length-1;
     LOG.info("FCFS_INFO" + 
      "\nBLOCK         : " + block +
      "\nPIPELINESIZE  : " + pipelineSize +
+     "\nPOSITION      : " + position +
      "\nNUM_IMMEDIATE : " + numImmediate + 
      "\nPRIORITY      : " + replicationPriority + 
      "\nFLOW_NAME     : " + flowName);
