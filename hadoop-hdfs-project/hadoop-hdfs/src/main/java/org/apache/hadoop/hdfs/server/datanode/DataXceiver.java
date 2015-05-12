@@ -770,17 +770,17 @@ class DataXceiver extends Receiver implements Runnable {
 
           // Do not propagate allowLazyPersist to downstream DataNodes.
           if (targetPinnings != null && targetPinnings.length > 0) {
-            new Sender(mirrorOut).writeBlock(originalBlock, targetStorageTypes[0],
+            new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
               blockToken, clientname, targets, targetStorageTypes, srcDataNode,
               stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
               latestGenerationStamp, requestedChecksum, cachingStrategy,
-              false, targetPinnings[0], targetPinnings);
+              false, targetPinnings[0], targetPinnings,replicationPriority,flowName,numImmediate);
           } else {
-            new Sender(mirrorOut).writeBlock(originalBlock, targetStorageTypes[0],
+            new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
               blockToken, clientname, targets, targetStorageTypes, srcDataNode,
               stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
               latestGenerationStamp, requestedChecksum, cachingStrategy,
-              false, false, targetPinnings);
+              false, false, targetPinnings,replicationPriority,flowName,numImmediate);
           }
 
           mirrorOut.flush();

@@ -173,7 +173,7 @@ class DataStreamer extends Daemon {
     }
     packets.clear();
   }
-  
+
   static class LastExceptionInStreamer {
     private IOException thrown;
 
@@ -274,11 +274,14 @@ class DataStreamer extends Daemon {
   private final LoadingCache<DatanodeInfo, DatanodeInfo> excludedNodes;
   private final String[] favoredNodes;
 
+  private final float replicationPriority;
+  private final int numImmediate;
+
   private DataStreamer(HdfsFileStatus stat, DFSClient dfsClient, String src,
-                       Progressable progress, DataChecksum checksum,
-                       AtomicReference<CachingStrategy> cachingStrategy,
-                       ByteArrayManager byteArrayManage,
-                       boolean isAppend, String[] favoredNodes) {
+      Progressable progress, DataChecksum checksum,
+      AtomicReference<CachingStrategy> cachingStrategy,
+      ByteArrayManager byteArrayManage,
+      boolean isAppend, String[] favoredNodes) {
     this.dfsClient = dfsClient;
     this.src = src;
     this.progress = progress;
@@ -292,15 +295,40 @@ class DataStreamer extends Daemon {
     this.excludedNodes = initExcludedNodes();
     this.isAppend = isAppend;
     this.favoredNodes = favoredNodes;
+    this.replicationPriority = DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT;
+    this.numImmediate = DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT;
+  }
+
+
+  private DataStreamer(HdfsFileStatus stat, DFSClient dfsClient, String src,
+      Progressable progress, DataChecksum checksum,
+      AtomicReference<CachingStrategy> cachingStrategy,
+      ByteArrayManager byteArrayManage,
+      boolean isAppend, String[] favoredNodes,float replicationPriority, int numImmediate) {
+    this.dfsClient = dfsClient;
+    this.src = src;
+    this.progress = progress;
+    this.stat = stat;
+    this.checksum4WriteBlock = checksum;
+    this.cachingStrategy = cachingStrategy;
+    this.byteArrayManager = byteArrayManage;
+    this.isLazyPersistFile = isLazyPersist(stat);
+    this.dfsclientSlowLogThresholdMs =
+        dfsClient.getConf().getSlowIoWarningThresholdMs();
+    this.excludedNodes = initExcludedNodes();
+    this.isAppend = isAppend;
+    this.favoredNodes = favoredNodes;
+    this.replicationPriority = replicationPriority;
+    this.numImmediate = numImmediate;
   }
 
   /**
    * construction with tracing info
    */
   DataStreamer(HdfsFileStatus stat, ExtendedBlock block, DFSClient dfsClient,
-               String src, Progressable progress, DataChecksum checksum,
-               AtomicReference<CachingStrategy> cachingStrategy,
-               ByteArrayManager byteArrayManage, String[] favoredNodes) {
+      String src, Progressable progress, DataChecksum checksum,
+      AtomicReference<CachingStrategy> cachingStrategy,
+      ByteArrayManager byteArrayManage, String[] favoredNodes) {
     this(stat, dfsClient, src, progress, checksum, cachingStrategy,
         byteArrayManage, false, favoredNodes);
     this.block = block;
@@ -314,9 +342,9 @@ class DataStreamer extends Daemon {
    * @throws IOException if error occurs
    */
   DataStreamer(LocatedBlock lastBlock, HdfsFileStatus stat, DFSClient dfsClient,
-               String src, Progressable progress, DataChecksum checksum,
-               AtomicReference<CachingStrategy> cachingStrategy,
-               ByteArrayManager byteArrayManage) throws IOException {
+      String src, Progressable progress, DataChecksum checksum,
+      AtomicReference<CachingStrategy> cachingStrategy,
+      ByteArrayManager byteArrayManage) throws IOException {
     this(stat, dfsClient, src, progress, checksum, cachingStrategy,
         byteArrayManage, true, null);
     stage = BlockConstructionStage.PIPELINE_SETUP_APPEND;
@@ -324,6 +352,28 @@ class DataStreamer extends Daemon {
     bytesSent = block.getNumBytes();
     accessToken = lastBlock.getBlockToken();
   }
+  
+  /* *********
+   * Constructors for FCFS
+   */
+  
+  /* *
+   * FCFS construction with tracing info
+   */
+  
+  DataStreamer(HdfsFileStatus stat, ExtendedBlock block, DFSClient dfsClient,
+      String src, Progressable progress, DataChecksum checksum,
+      AtomicReference<CachingStrategy> cachingStrategy,
+      ByteArrayManager byteArrayManage, String[] favoredNodes,float replicationPriority, int numImmediate) {
+    this(stat, dfsClient, src, progress, checksum, cachingStrategy,
+        byteArrayManage, false, favoredNodes,replicationPriority,numImmediate);
+    this.block = block;
+    stage = BlockConstructionStage.PIPELINE_SETUP_CREATE;
+  }
+  
+ 
+  
+  
 
   /**
    * Set pipeline in construction
@@ -347,7 +397,7 @@ class DataStreamer extends Daemon {
   }
 
   private void setPipeline(DatanodeInfo[] nodes, StorageType[] storageTypes,
-                           String[] storageIDs) {
+      String[] storageIDs) {
     this.nodes = nodes;
     this.storageTypes = storageTypes;
     this.storageIDs = storageIDs;
@@ -410,8 +460,8 @@ class DataStreamer extends Daemon {
           while ((!streamerClosed && !hasError && dfsClient.clientRunning
               && dataQueue.size() == 0 &&
               (stage != BlockConstructionStage.DATA_STREAMING ||
-                  stage == BlockConstructionStage.DATA_STREAMING &&
-                      now - lastPacket < halfSocketTimeout)) || doSleep ) {
+              stage == BlockConstructionStage.DATA_STREAMING &&
+              now - lastPacket < halfSocketTimeout)) || doSleep ) {
             long timeout = halfSocketTimeout - (now-lastPacket);
             timeout = timeout <= 0 ? 1000 : timeout;
             timeout = (stage == BlockConstructionStage.DATA_STREAMING)?
@@ -663,7 +713,7 @@ class DataStreamer extends Daemon {
         boolean firstWait = true;
         try {
           while (!streamerClosed && dataQueue.size() + ackQueue.size() >
-              dfsClient.getConf().getWriteMaxPackets()) {
+          dfsClient.getConf().getWriteMaxPackets()) {
             if (firstWait) {
               Span span = Trace.currentSpan();
               if (span != null) {
@@ -913,7 +963,7 @@ class DataStreamer extends Daemon {
           }
 
           assert seqno != PipelineAck.UNKOWN_SEQNO :
-              "Ack for unknown seqno should be a failed ack: " + ack;
+            "Ack for unknown seqno should be a failed ack: " + ack;
           if (seqno == DFSPacket.HEART_BEAT_SEQNO) {  // a heartbeat ack
             continue;
           }
@@ -967,7 +1017,7 @@ class DataStreamer extends Daemon {
             responderClosed = true;
           }
         } finally {
-            scope.close();
+          scope.close();
         }
       }
     }
@@ -1053,20 +1103,20 @@ class DataStreamer extends Daemon {
   }
 
   private int findNewDatanode(final DatanodeInfo[] original
-  ) throws IOException {
+      ) throws IOException {
     if (nodes.length != original.length + 1) {
       throw new IOException(
           new StringBuilder()
-              .append("Failed to replace a bad datanode on the existing pipeline ")
-              .append("due to no more good datanodes being available to try. ")
-              .append("(Nodes: current=").append(Arrays.asList(nodes))
-              .append(", original=").append(Arrays.asList(original)).append("). ")
-              .append("The current failed datanode replacement policy is ")
-              .append(dfsClient.dtpReplaceDatanodeOnFailure).append(", and ")
-              .append("a client may configure this via '")
-              .append(HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_KEY)
-              .append("' in its configuration.")
-              .toString());
+          .append("Failed to replace a bad datanode on the existing pipeline ")
+          .append("due to no more good datanodes being available to try. ")
+          .append("(Nodes: current=").append(Arrays.asList(nodes))
+          .append(", original=").append(Arrays.asList(original)).append("). ")
+          .append("The current failed datanode replacement policy is ")
+          .append(dfsClient.dtpReplaceDatanodeOnFailure).append(", and ")
+          .append("a client may configure this via '")
+          .append(HdfsClientConfigKeys.BlockWrite.ReplaceDatanodeOnFailure.POLICY_KEY)
+          .append("' in its configuration.")
+          .toString());
     }
     for(int i = 0; i < nodes.length; i++) {
       int j = 0;
@@ -1083,25 +1133,25 @@ class DataStreamer extends Daemon {
     if (DataTransferProtocol.LOG.isDebugEnabled()) {
       DataTransferProtocol.LOG.debug("lastAckedSeqno = " + lastAckedSeqno);
     }
-      /*
-       * Is data transfer necessary?  We have the following cases.
-       *
-       * Case 1: Failure in Pipeline Setup
-       * - Append
-       *    + Transfer the stored replica, which may be a RBW or a finalized.
-       * - Create
-       *    + If no data, then no transfer is required.
-       *    + If there are data written, transfer RBW. This case may happens
-       *      when there are streaming failure earlier in this pipeline.
-       *
-       * Case 2: Failure in Streaming
-       * - Append/Create:
-       *    + transfer RBW
-       *
-       * Case 3: Failure in Close
-       * - Append/Create:
-       *    + no transfer, let NameNode replicates the block.
-       */
+    /*
+     * Is data transfer necessary?  We have the following cases.
+     *
+     * Case 1: Failure in Pipeline Setup
+     * - Append
+     *    + Transfer the stored replica, which may be a RBW or a finalized.
+     * - Create
+     *    + If no data, then no transfer is required.
+     *    + If there are data written, transfer RBW. This case may happens
+     *      when there are streaming failure earlier in this pipeline.
+     *
+     * Case 2: Failure in Streaming
+     * - Append/Create:
+     *    + transfer RBW
+     *
+     * Case 3: Failure in Close
+     * - Append/Create:
+     *    + no transfer, let NameNode replicates the block.
+     */
     if (!isAppend && lastAckedSeqno < 0
         && stage == BlockConstructionStage.PIPELINE_SETUP_CREATE) {
       //no data have been written
@@ -1131,8 +1181,8 @@ class DataStreamer extends Daemon {
   }
 
   private void transfer(final DatanodeInfo src, final DatanodeInfo[] targets,
-                        final StorageType[] targetStorageTypes,
-                        final Token<BlockTokenIdentifier> blockToken) throws IOException {
+      final StorageType[] targetStorageTypes,
+      final Token<BlockTokenIdentifier> blockToken) throws IOException {
     //transfer replica to the new datanode
     Socket sock = null;
     DataOutputStream out = null;
@@ -1361,8 +1411,8 @@ class DataStreamer extends Daemon {
 
       DatanodeInfo[] excluded =
           excludedNodes.getAllPresent(excludedNodes.asMap().keySet())
-              .keySet()
-              .toArray(new DatanodeInfo[0]);
+          .keySet()
+          .toArray(new DatanodeInfo[0]);
       block = oldBlock;
       lb = locateFollowingBlock(excluded.length > 0 ? excluded : null);
       block = lb.getBlock();
@@ -1446,11 +1496,19 @@ class DataStreamer extends Daemon {
 
         boolean[] targetPinnings = getPinnings(nodes, true);
         // send the request
-        new Sender(out).writeBlock(blockCopy, nodeStorageTypes[0], accessToken,
+        
+
+        String flowName =  dfsClient.clientName;
+//        int findex = Math.max(flowName.indexOf("_m_"), flowName.indexOf("_r_"));
+//        if(findex>0){
+//          flowName = flowName.substring(0,findex);
+//        }
+        
+        new Sender(out).FCFSwriteBlock(blockCopy, nodeStorageTypes[0], accessToken,
             dfsClient.clientName, nodes, nodeStorageTypes, null, bcs,
             nodes.length, block.getNumBytes(), bytesSent, newGS,
             checksum4WriteBlock, cachingStrategy.get(), isLazyPersistFile,
-            (targetPinnings == null ? false : targetPinnings[0]), targetPinnings);
+            (targetPinnings == null ? false : targetPinnings[0]), targetPinnings,replicationPriority,flowName,numImmediate);
 
         // receive ack for connect
         BlockOpResponseProto resp = BlockOpResponseProto.parseFrom(
@@ -1468,7 +1526,7 @@ class DataStreamer extends Daemon {
           checkRestart = true;
           throw new IOException("A datanode is restarting.");
         }
-		
+
         String logInfo = "ack with firstBadLink as " + firstBadLink;
         DataTransferProtoUtil.checkBlockOpStatus(resp, logInfo);
 
@@ -1629,11 +1687,11 @@ class DataStreamer extends Daemon {
           sb.append(' ').append(i);
         }
         int range = Math.abs(lastCongestionBackoffTime * 3 -
-                                CONGESTION_BACKOFF_MEAN_TIME_IN_MS);
+            CONGESTION_BACKOFF_MEAN_TIME_IN_MS);
         int base = Math.min(lastCongestionBackoffTime * 3,
-                            CONGESTION_BACKOFF_MEAN_TIME_IN_MS);
+            CONGESTION_BACKOFF_MEAN_TIME_IN_MS);
         t = Math.min(CONGESTION_BACK_OFF_MAX_TIME_IN_MS,
-                     (int)(base + Math.random() * range));
+            (int)(base + Math.random() * range));
         lastCongestionBackoffTime = t;
         sb.append(" are congested. Backing off for ").append(t).append(" ms");
         LOG.info(sb.toString());

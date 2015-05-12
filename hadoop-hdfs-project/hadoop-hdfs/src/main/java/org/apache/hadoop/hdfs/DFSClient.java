@@ -1350,7 +1350,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
     final DFSOutputStream result = DFSOutputStream.newStreamForCreate(this,
         src, masked, flag, createParent, replication, blockSize, progress,
         buffersize, dfsClientConf.createChecksum(checksumOpt),
-        getFavoredNodesStr(favoredNodes));
+        getFavoredNodesStr(favoredNodes),dfsClientConf.getReplicationPriority(),dfsClientConf.getNumImmediate());
     beginFileLease(result.getFileId(), result);
     return result;
   }
@@ -1410,7 +1410,7 @@ public class DFSClient implements java.io.Closeable, RemotePeerFactory,
       DataChecksum checksum = dfsClientConf.createChecksum(checksumOpt);
       result = DFSOutputStream.newStreamForCreate(this, src, absPermission,
           flag, createParent, replication, blockSize, progress, buffersize,
-          checksum, null);
+          checksum, null,dfsClientConf.getReplicationPriority(),dfsClientConf.getNumImmediate());
     }
     beginFileLease(result.getFileId(), result);
     return result;

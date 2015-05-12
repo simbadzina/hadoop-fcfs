@@ -116,6 +116,8 @@ public class DFSOutputStream extends FSOutputSummer
   protected boolean shouldSyncBlock = false; // force blocks to disk upon close
   protected final AtomicReference<CachingStrategy> cachingStrategy;
   private FileEncryptionInfo fileEncryptionInfo;
+  
+  
 
   /** Use {@link ByteArrayManager} to create buffer for non-heartbeat packets.*/
   protected DFSPacket createPacket(int packetSize, int chunksPerPkt, long offsetInBlock,
@@ -176,8 +178,14 @@ public class DFSOutputStream extends FSOutputSummer
     return checksum;
   }
  
+  //original constructor calling expanded version
   private DFSOutputStream(DFSClient dfsClient, String src, Progressable progress,
-      HdfsFileStatus stat, DataChecksum checksum) throws IOException {
+      HdfsFileStatus stat, DataChecksum checksum) throws IOException{
+    this(dfsClient,src,progress,stat,checksum,DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT,DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT);
+  }
+  
+  private DFSOutputStream(DFSClient dfsClient, String src, Progressable progress,
+      HdfsFileStatus stat, DataChecksum checksum,float replicationPriority,int numImmediate) throws IOException {
     super(getChecksum4Compute(checksum, stat));
     this.dfsClient = dfsClient;
     this.src = src;
@@ -205,23 +213,40 @@ public class DFSOutputStream extends FSOutputSummer
     this.byteArrayManager = dfsClient.getClientContext().getByteArrayManager();
   }
 
+ //original constructor calling expanded version
+  protected DFSOutputStream(DFSClient dfsClient, String src, HdfsFileStatus stat,
+      EnumSet<CreateFlag> flag, Progressable progress,
+      DataChecksum checksum, String[] favoredNodes) throws IOException{
+    this(dfsClient,src,stat,flag,progress,checksum,favoredNodes,DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT,DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT);
+  }
+  
   /** Construct a new output stream for creating a file. */
   protected DFSOutputStream(DFSClient dfsClient, String src, HdfsFileStatus stat,
       EnumSet<CreateFlag> flag, Progressable progress,
-      DataChecksum checksum, String[] favoredNodes) throws IOException {
+      DataChecksum checksum, String[] favoredNodes,float replicationPriority,int numImmediate) throws IOException {
     this(dfsClient, src, progress, stat, checksum);
     this.shouldSyncBlock = flag.contains(CreateFlag.SYNC_BLOCK);
-
+    
     computePacketChunkSize(dfsClient.getConf().getWritePacketSize(), bytesPerChecksum);
 
     streamer = new DataStreamer(stat, null, dfsClient, src, progress, checksum,
-        cachingStrategy, byteArrayManager, favoredNodes);
+        cachingStrategy, byteArrayManager, favoredNodes,replicationPriority,numImmediate);
   }
 
+  
+  //original function calling expanded
   static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
       FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
       short replication, long blockSize, Progressable progress, int buffersize,
-      DataChecksum checksum, String[] favoredNodes) throws IOException {
+      DataChecksum checksum, String[] favoredNodes) throws IOException{
+    return  newStreamForCreate(dfsClient,src,masked,flag,createParent,replication,blockSize,progress,buffersize,checksum,favoredNodes,
+        DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT,DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT);
+  }
+      
+  static DFSOutputStream newStreamForCreate(DFSClient dfsClient, String src,
+      FsPermission masked, EnumSet<CreateFlag> flag, boolean createParent,
+      short replication, long blockSize, Progressable progress, int buffersize,
+      DataChecksum checksum, String[] favoredNodes,float replicationPriority,int numImmediate) throws IOException {
     TraceScope scope =
         dfsClient.getPathTraceScope("newStreamForCreate", src);
     try {
@@ -267,7 +292,7 @@ public class DFSOutputStream extends FSOutputSummer
       }
       Preconditions.checkNotNull(stat, "HdfsFileStatus should not be null!");
       final DFSOutputStream out = new DFSOutputStream(dfsClient, src, stat,
-          flag, progress, checksum, favoredNodes);
+          flag, progress, checksum, favoredNodes,replicationPriority,numImmediate);
       out.start();
       return out;
     } finally {

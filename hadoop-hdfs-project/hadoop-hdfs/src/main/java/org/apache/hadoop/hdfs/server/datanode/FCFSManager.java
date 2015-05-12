@@ -83,7 +83,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     numActAsyncReceives.getAndDecrement();
   }
 
-  public FCFSManager(Configuration conf, DataNode datanode){
+  public FCFSManager(Configuration conf, DataNode datanode) throws IOException{
     this.datanode = datanode;
     this.conf = conf;
 
@@ -115,6 +115,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       reader = new ProcReader();
     }catch(FileNotFoundException e){
       LOG.warn("Cannot find diskstats file");
+      throw new IOException("Cannot find diskstats file : /proc/diskstats");
     }   
 
 
@@ -308,7 +309,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     }catch(IOException e){
       LOG.warn("Error in ProcReader : " + e);
     }
-    smoothedActivity = (long)((smoothedActivity*(1-smoothedActivity)) + 
+    smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + 
         (activitySmoothingExp*rawActivity));
 
     if( Math.abs(smoothedActivity-lowActivityMean) < Math.abs(smoothedActivity-highActivityMean)){
@@ -328,7 +329,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
         calculateSpeeds();
         processQueue();
       }catch(Exception e){
-        LOG.warn("YOHWE drm run : " + e.toString());
+        LOG.warn("YOHWE fcfs run : " + e.toString());
       }
       try{
         synchronized(this){

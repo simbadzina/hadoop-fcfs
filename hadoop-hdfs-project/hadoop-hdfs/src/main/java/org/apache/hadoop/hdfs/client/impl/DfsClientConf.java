@@ -38,6 +38,11 @@ import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_DATANODE_SOCKET_WRITE_TIM
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_DEFAULT;
 import static org.apache.hadoop.hdfs.DFSConfigKeys.DFS_REPLICATION_KEY;
 
+import static org.apache.hadoop.hdfs.DFSConfigKeys.FCFS_REPLICATION_PRIORITY_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.FCFS_REPLICATION_PRIORITY_DEFAULT;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.FCFS_NUM_IMMEDIATE_KEY;
+import static org.apache.hadoop.hdfs.DFSConfigKeys.FCFS_NUM_IMMEDIATE_DEFAULT;
+
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.HadoopIllegalArgumentException;
@@ -100,6 +105,9 @@ public class DfsClientConf {
   
   private final long hedgedReadThresholdMillis;
   private final int hedgedReadThreadpoolSize;
+  
+  private final float replicationPriority;
+  private final int numImmediate;
 
   public DfsClientConf(Configuration conf) {
     // The hdfsTimeout is currently the same as the ipc timeout 
@@ -215,6 +223,9 @@ public class DfsClientConf {
     hedgedReadThreadpoolSize = conf.getInt(
         HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_KEY,
         HdfsClientConfigKeys.HedgedRead.THREADPOOL_SIZE_DEFAULT);
+    
+    replicationPriority = conf.getFloat(FCFS_REPLICATION_PRIORITY_KEY, FCFS_REPLICATION_PRIORITY_DEFAULT);
+    numImmediate = conf.getInt(FCFS_NUM_IMMEDIATE_KEY, FCFS_NUM_IMMEDIATE_DEFAULT);
   }
 
   private DataChecksum.Type getChecksumType(Configuration conf) {
@@ -496,6 +507,15 @@ public class DfsClientConf {
    */
   public ShortCircuitConf getShortCircuitConf() {
     return shortCircuitConf;
+  }
+  
+  
+  public float getReplicationPriority(){
+    return replicationPriority;
+  }
+  
+  public int getNumImmediate(){
+    return numImmediate;
   }
 
   public static class ShortCircuitConf {
