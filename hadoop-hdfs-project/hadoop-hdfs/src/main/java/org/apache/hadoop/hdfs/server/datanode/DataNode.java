@@ -293,6 +293,11 @@ public class DataNode extends ReconfigurableBase
   Daemon dataXceiverServer = null;
   DataXceiverServer xserver = null;
   Daemon localDataXceiverServer = null;
+  
+  //FCFS daemon and threadgroup
+  Daemon fcfsManager = null;
+  ThreadGroup fcfsManagerThreadGroup = null;
+  
   ShortCircuitRegistry shortCircuitRegistry = null;
   ThreadGroup threadGroup = null;
   private DNConf dnConf;
@@ -927,6 +932,9 @@ public class DataNode extends ReconfigurableBase
     xserver = new DataXceiverServer(tcpPeerServer, conf, this);
     this.dataXceiverServer = new Daemon(threadGroup, xserver);
     this.threadGroup.setDaemon(true); // auto destroy when empty
+    
+    this.fcfsManagerThreadGroup = new ThreadGroup(threadGroup, "fcfsManager");
+    this.fcfsManager = new Daemon(fcfsManagerThreadGroup,new FCFSManager(conf,this));
 
     if (conf.getBoolean(HdfsClientConfigKeys.Read.ShortCircuit.KEY,
               HdfsClientConfigKeys.Read.ShortCircuit.DEFAULT) ||
@@ -1740,6 +1748,8 @@ public class DataNode extends ReconfigurableBase
     
     // wait reconfiguration thread, if any, to exit
     shutdownReconfigurationTask();
+    
+ 
 
     // wait for all data receiver threads to exit
     if (this.threadGroup != null) {
@@ -1783,6 +1793,45 @@ public class DataNode extends ReconfigurableBase
       }
     }
    
+    
+    //shutdown fcfsManager
+    if(fcfsManager != null){
+      ((FCFSManager)this.fcfsManager.getRunnable()).kill();
+      this.fcfsManager.interrupt();
+    }
+ 
+    if (this.fcfsManagerThreadGroup != null) {
+      int sleepMs = 2;
+      while (true) {
+        this.fcfsManagerThreadGroup.interrupt();
+        LOG.info("Waiting for delayedReplicatointhreadgroup to exit, active threads is " +
+            this.fcfsManagerThreadGroup.activeCount());
+        if (this.fcfsManagerThreadGroup.activeCount() == 0) {
+          break;
+        }
+        try {
+          Thread.sleep(sleepMs);
+        } catch (InterruptedException e) {}
+        sleepMs = sleepMs * 3 / 2; // exponential backoff
+        if (sleepMs > 1000) {
+          sleepMs = 1000;
+        }
+      }
+      this.fcfsManagerThreadGroup = null;
+    }
+
+    
+    if (this.fcfsManager != null) {
+      // wait for fcfsManager to terminate
+      try {
+        this.fcfsManager.join();
+      } catch (InterruptedException ie) {
+      }
+    }
+    
+    
+    
+    
    // IPC server needs to be shutdown late in the process, otherwise
    // shutdown command response won't get sent.
    if (ipcServer != null) {
@@ -2474,6 +2523,9 @@ public class DataNode extends ReconfigurableBase
   public void runDatanodeDaemon() throws IOException {
     blockPoolManager.startAll();
 
+    //start fcfsManager
+    fcfsManager.start();
+    
     // start dataXceiveServer
     dataXceiverServer.start();
     if (localDataXceiverServer != null) {

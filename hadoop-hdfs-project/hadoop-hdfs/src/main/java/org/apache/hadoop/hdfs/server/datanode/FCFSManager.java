@@ -8,7 +8,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.DFSConfigKeys;
 import org.apache.hadoop.hdfs.protocol.DatanodeInfo;
 import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
-
 import org.apache.hadoop.hdfs.server.protocol.PipelineFeedbackProtocol;
 import org.apache.hadoop.fs.StorageType;
 
@@ -20,20 +19,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.*;
-
-
 import java.io.*;
 import java.util.*;
 import java.net.InetSocketAddress;
-
 
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
+
 import java.security.PrivilegedExceptionAction;
 
-public class FCFSManager implements PipelineFeedbackProtocol {
+public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private final DataNode datanode;
   private final Configuration conf;
   public static final Log LOG = DataNode.LOG;
