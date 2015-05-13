@@ -286,6 +286,7 @@ message ReceivedDeletedBlockInfoProto {
     RECEIVING = 1; // block being created
     RECEIVED = 2; // block creation complete
     DELETED = 3;
+    PENDING_ASYNC = 4;
   }
 
   required BlockProto block = 1;

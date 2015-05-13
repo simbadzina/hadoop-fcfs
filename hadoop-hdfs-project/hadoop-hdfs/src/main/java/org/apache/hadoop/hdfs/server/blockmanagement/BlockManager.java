@@ -203,6 +203,7 @@ public class BlockManager {
 
   @VisibleForTesting
   final PendingReplicationBlocks pendingReplications;
+  final PendingAsyncReplicationBlocks pendingAsync;
 
   /** The maximum number of replicas allowed for a block */
   public final short maxReplication;
@@ -290,6 +291,7 @@ public class BlockManager {
       DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_KEY,
       DFSConfigKeys.DFS_NAMENODE_REPLICATION_PENDING_TIMEOUT_SEC_DEFAULT) * 1000L);
 
+    pendingAsync = new PendingAsyncReplicationBlocks();
     blockTokenSecretManager = createBlockTokenSecretManager(conf);
 
     this.maxCorruptFilesReturned = conf.getInt(
@@ -452,6 +454,7 @@ public class BlockManager {
 
   public void activate(Configuration conf) {
     pendingReplications.start();
+    pendingAsync.start();
     datanodeManager.activate(conf);
     this.replicationThread.start();
   }
@@ -464,6 +467,7 @@ public class BlockManager {
     }
     datanodeManager.close();
     pendingReplications.stop();
+    pendingAsync.stop();
     blocksMap.close();
   }
 
@@ -733,6 +737,7 @@ public class BlockManager {
     neededReplications.remove(ucBlock, replicas.liveReplicas(),
         replicas.decommissionedAndDecommissioning(), getReplication(ucBlock));
     pendingReplications.remove(ucBlock);
+    pendingAsync.removeCompletely(ucBlock);
 
     // remove this block from the list of pending blocks to be deleted. 
     for (DatanodeStorageInfo storage : targets) {
@@ -2573,6 +2578,9 @@ public class BlockManager {
       namesystem.incrementSafeBlockCount(numCurrentReplica);
     }
     
+    pendingAsync.remove(storedBlock);
+    blockLog.info("ASYNC_SIZE, " + pendingAsync.size() );
+    
     // if file is under construction, then done for now
     if (bc.isUnderConstruction()) {
       return storedBlock;
@@ -3224,6 +3232,8 @@ public class BlockManager {
         processAndHandleReportedBlock(storageInfo, rdbi.getBlock(),
                                       ReplicaState.RBW, null);
         break;
+      case PENDING_ASYNC:
+        LOG.info("PENDING_ASYNC at namenode" + rdbi.getBlock().getBlockId());
       default:
         String msg = 
           "Unknown block status code reported by " + nodeID +
@@ -3388,6 +3398,7 @@ public class BlockManager {
     removeBlockFromMap(block);
     // Remove the block from pendingReplications and neededReplications
     pendingReplications.remove(block);
+    pendingAsync.removeCompletely(block);
     neededReplications.remove(block, UnderReplicatedBlocks.LEVEL);
     if (postponedMisreplicatedBlocks.remove(block)) {
       postponedMisreplicatedBlocksCount.decrementAndGet();

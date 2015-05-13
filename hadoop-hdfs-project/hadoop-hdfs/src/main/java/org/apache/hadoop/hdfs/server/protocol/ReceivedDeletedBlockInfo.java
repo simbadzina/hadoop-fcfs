@@ -31,7 +31,8 @@ public class ReceivedDeletedBlockInfo {
   public static enum BlockStatus {
     RECEIVING_BLOCK(1),
     RECEIVED_BLOCK(2),
-    DELETED_BLOCK(3);
+    DELETED_BLOCK(3),
+    PENDING_ASYNC(4);
     
     private final int code;
     BlockStatus(int code) {

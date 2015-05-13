@@ -1196,6 +1196,9 @@ public class PBHelper {
     case DELETED_BLOCK:
       status = ReceivedDeletedBlockInfoProto.BlockStatus.DELETED;
       break;
+    case PENDING_ASYNC:
+      status = ReceivedDeletedBlockInfoProto.BlockStatus.PENDING_ASYNC;
+      break;
     default:
       throw new IllegalArgumentException("Bad status: " +
           receivedDeletedBlockInfo.getStatus());
@@ -1221,6 +1224,9 @@ public class PBHelper {
       break;
     case DELETED:
       status = BlockStatus.DELETED_BLOCK;
+      break;
+    case PENDING_ASYNC:
+      status = BlockStatus.PENDING_ASYNC;
       break;
     }
     return new ReceivedDeletedBlockInfo(

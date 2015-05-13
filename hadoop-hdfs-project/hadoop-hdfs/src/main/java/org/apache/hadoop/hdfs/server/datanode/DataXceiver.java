@@ -915,9 +915,17 @@ class DataXceiver extends Receiver implements Runnable {
       // the block is finalized in the PacketResponder.
       if (isDatanode ||
           stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
+        
+        /** 
+         * Send info about asynchronous blocks
+         */
+        LOG.info("PENDING_ASYNC at datanode " + block.getBlockId());
+        datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+        
         datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, storageUuid);
         LOG.info("Received " + block + " src: " + remoteAddress + " dest: "
             + localAddress + " of size " + block.getNumBytes());
+
       }
 
       if(isClient) {
@@ -1261,6 +1269,7 @@ class DataXceiver extends Receiver implements Runnable {
             dataXceiverServer.balanceThrottler, null, true);
 
         // notify name node
+       
         datanode.notifyNamenodeReceivedBlock(
             block, delHint, blockReceiver.getStorageUuid());
 
