@@ -46,6 +46,15 @@ public class PendingAsyncReplicationBlocks {
   boolean isPending(Block block){
     return pendingReplications.containsKey(block);
   }
+  
+  int numPending(Block block){
+    PendingAsyncBlockInfo found = pendingReplications.get(block);
+    if(found !=null){
+      return found.getNumNodes();
+    }else{
+      return 0;
+    }
+  }
 
   void insert(Block block) {
     synchronized (pendingReplications) {
@@ -58,7 +67,9 @@ public class PendingAsyncReplicationBlocks {
         found.setTimeStamp();
         found.increment();
       }
+      LOG.info("async_insert, " + block.getBlockId() + ", " + found.numNodes);
     }
+    
   }
 
 
@@ -84,6 +95,7 @@ public class PendingAsyncReplicationBlocks {
         }
 
       }
+      LOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
     }
   }
 

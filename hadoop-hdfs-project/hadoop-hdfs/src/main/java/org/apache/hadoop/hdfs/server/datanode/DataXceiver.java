@@ -887,6 +887,12 @@ class DataXceiver extends Receiver implements Runnable {
         try{
           if(isAsyncWrite){fcfsManager.addAsyncWrite();}
           fcfsManager.addImmWrite();
+          /** 
+           * Send info about asynchronous blocks
+           */
+          LOG.info("PENDING_ASYNC at datanode " + block.getBlockId());
+          datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+          
           blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
               mirrorAddr, null, targets, false);
         }finally{
@@ -916,11 +922,7 @@ class DataXceiver extends Receiver implements Runnable {
       if (isDatanode ||
           stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
         
-        /** 
-         * Send info about asynchronous blocks
-         */
-        LOG.info("PENDING_ASYNC at datanode " + block.getBlockId());
-        datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+        
         
         datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, storageUuid);
         LOG.info("Received " + block + " src: " + remoteAddress + " dest: "

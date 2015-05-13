@@ -3234,6 +3234,8 @@ public class BlockManager {
         break;
       case PENDING_ASYNC:
         LOG.info("PENDING_ASYNC at namenode" + rdbi.getBlock().getBlockId());
+        pendingAsync.insert(rdbi.getBlock());
+        break;
       default:
         String msg = 
           "Unknown block status code reported by " + nodeID +
@@ -3444,11 +3446,17 @@ public class BlockManager {
     final short expected = bc.getBlockReplication();
     for (Block block : bc.getBlocks()) {
       final NumberReplicas n = countNodes(block);
-      if (isNeededReplication(block, expected, n.liveReplicas())) { 
+      int numPending = pendingAsync.numPending(block);
+      short newExpected = (short)(expected-numPending);
+      LOG.info("CHECKREPLICATOIN:" +
+      "\nnumPending  : " + numPending +
+      "\nexpected    : " + expected +
+      "\nnewExpected : " + newExpected);
+      if (isNeededReplication(block, newExpected, n.liveReplicas())) { 
         neededReplications.add(block, n.liveReplicas(),
-            n.decommissionedAndDecommissioning(), expected);
-      } else if (n.liveReplicas() > expected) {
-        processOverReplicatedBlock(block, expected, null, null);
+            n.decommissionedAndDecommissioning(), newExpected);
+      } else if (n.liveReplicas() > newExpected) {
+        processOverReplicatedBlock(block, newExpected, null, null);
       }
     }
   }
