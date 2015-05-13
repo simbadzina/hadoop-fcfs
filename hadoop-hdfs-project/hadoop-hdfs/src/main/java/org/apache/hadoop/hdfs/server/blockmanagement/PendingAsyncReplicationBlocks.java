@@ -60,9 +60,9 @@ public class PendingAsyncReplicationBlocks {
     synchronized (pendingReplications) {
       PendingAsyncBlockInfo found = pendingReplications.get(block);
       if (found== null) {
-        PendingAsyncBlockInfo bInfo = new PendingAsyncBlockInfo();
-        pendingReplications.put(block, bInfo);
-        blockIdMapping.put(block.getBlockId(), bInfo);
+        found = new PendingAsyncBlockInfo();
+        pendingReplications.put(block, found);
+        blockIdMapping.put(block.getBlockId(), found);
       } else {
         found.setTimeStamp();
         found.increment();
