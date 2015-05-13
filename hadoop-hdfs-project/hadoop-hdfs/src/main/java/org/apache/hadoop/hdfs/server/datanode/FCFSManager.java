@@ -38,7 +38,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private Queue<PendingForward> pendingForwards;
 
   private AtomicInteger numImmWrite;
-  private AtomicInteger numActAsyncReceives;
+  private AtomicInteger numAsyncWrite;
   private int diskActivityThreshold;
   private int maxConcurrentReceives;
 
@@ -75,12 +75,20 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private long highActivityMean = 0;
   private long lowActivityMean = 1;
 
-  public void decrementNumActAsyncReceive(){
-    numActAsyncReceives.getAndDecrement();
+  public void addAsyncWrite(){
+    numAsyncWrite.getAndDecrement();
   }
 
-  synchronized void errorWithActAsyncReceiver(){
-    numActAsyncReceives.getAndDecrement();
+  public void removeAsyncWrite(){
+    numAsyncWrite.getAndDecrement();
+  }
+  
+  public void addImmWrite(){
+    numImmWrite.getAndIncrement();
+  }
+  
+  public void removeImmWrite(){
+    numImmWrite.getAndDecrement();
   }
 
   public FCFSManager(Configuration conf, DataNode datanode) throws IOException{
@@ -105,7 +113,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
 
     numImmWrite = new AtomicInteger(0);
-    numActAsyncReceives = new AtomicInteger(0);
+    numAsyncWrite = new AtomicInteger(0);
 
 
     receives = new WFQScheduler(this);
@@ -224,24 +232,23 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
   }
 
 
-  boolean shouldSegment(int position,int numImmediateWrites){
-    if(numImmediateWrites < 1){
+  boolean shouldSegment(int position,int numImmediate,int pipelineSize){
+    //always return false for last datanode in pipeline
+    if(position+1 >= pipelineSize){
       return false;
     }
-
-    if(position+1 >= numImmediateWrites){
-      return true;
-    }else{
-      return false;
-    }
+    
+    //segment is the next datanode should be written to asynchronously
+    return isAsyncWrite(position+1,numImmediate);
   }
 
-  synchronized boolean isAsyncReceive(int position,int numImmediateWrites){
-    if(numImmediateWrites < 1){
+  synchronized boolean isAsyncWrite(int position,int numImmediate){
+    //numImmediateWrites < 1 indicates no segmentation
+    if(numImmediate < 1){
       return false;
     }
 
-    if(position+1 > numImmediateWrites){
+    if(position+1 > numImmediate){
       return true;
     }else{
       return false;
@@ -255,7 +262,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
 
       //testing if we don't have too many activity receives
-      if(numActAsyncReceives.get() < maxConcurrentReceives){
+      if(numAsyncWrite.get() < maxConcurrentReceives){
         if(!receives.isEmpty()){
           PendingReceive toReceive = receives.getReceive();
           if(toReceive != null){
@@ -291,12 +298,14 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     }
     lastStatLog = System.currentTimeMillis();
 
-    LOG.info("FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold);
-    LOG.info("FCFS_STAT_IMM_WRITE, " + numImmWrite);
-    LOG.info("FCFS_STAT_PEN_RECEIVE, " + receives.getSize());
-    LOG.info("FCFS_STAT_NUM_QUEUE, " + receives.getNumQueues());
-    LOG.info("FCFS_STAT_DISK_ACTIVITY, " + smoothedActivity);
-    LOG.info("FCFS_STAT_RAW_ACTIVITY, " + rawActivity);
+    LOG.info(
+            "\nFCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold +
+            "\nFCFS_STAT_IMM_WRITE, " + numImmWrite+
+            "\nFCFS_STAT_PEN_FORWARD, " + pendingForwards.size()+
+            "\nFCFS_STAT_PEN_RECEIVE, " + receives.getSize()+
+            "\nFCFS_STAT_NUM_QUEUE, " + receives.getNumQueues()+
+            "\nFCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity+
+            "\nFCFS_STAT_RAW_ACTIVITY, " + rawActivity);
 
 
   }
