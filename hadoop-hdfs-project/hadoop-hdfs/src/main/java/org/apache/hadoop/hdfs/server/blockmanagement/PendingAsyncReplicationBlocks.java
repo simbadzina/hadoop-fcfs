@@ -93,9 +93,9 @@ public class PendingAsyncReplicationBlocks {
           pendingReplications.remove(block);
           blockIdMapping.remove(block.getBlockId());
         }
-
+        LOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
       }
-      LOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
+      
     }
   }
 
