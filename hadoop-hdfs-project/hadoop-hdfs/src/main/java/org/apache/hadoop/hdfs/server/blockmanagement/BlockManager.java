@@ -3449,6 +3449,7 @@ public class BlockManager {
       int numPending = pendingAsync.numPending(block);
       short newExpected = (short)(expected-numPending);
       LOG.info("CHECKREPLICATOIN:" +
+      "\nnumLive  : " + n.liveReplicas() +
       "\nnumPending  : " + numPending +
       "\nexpected    : " + expected +
       "\nnewExpected : " + newExpected);

@@ -891,8 +891,11 @@ class DataXceiver extends Receiver implements Runnable {
            * Send info about asynchronous blocks
            */
           LOG.info("PENDING_ASYNC at datanode " + block.getBlockId());
-          datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
-          
+          if(position==numImmediate-1 && (pipelineSize>numImmediate)){
+            for(int i = 0 ; i < pipelineSize; i++){
+                datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+            }
+          }
           blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
               mirrorAddr, null, targets, false);
         }finally{
