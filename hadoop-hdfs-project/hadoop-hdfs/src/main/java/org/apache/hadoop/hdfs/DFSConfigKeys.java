@@ -49,7 +49,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_NUM_IMMEDIATE_KEY = "fcfs.num-immediate";
   public static final int     FCFS_NUM_IMMEDIATE_DEFAULT = 0;
   public static final String  FCFS_REFRESH_INTERVAL_KEY = "fcfs.log.interval";
-  public static final int     FCFS_REFRESH_INTERVAL_DEFAULT = 5000;
+  public static final int     FCFS_REFRESH_INTERVAL_DEFAULT = 100;
   public static final String  FCFS_STAT_INTERVAL_KEY = "fcfs.stat.interval";
   public static final int     FCFS_STAT_INTERVAL_DEFAULT = 5000;
   public static final String  FCFS_ACTIVITY_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";

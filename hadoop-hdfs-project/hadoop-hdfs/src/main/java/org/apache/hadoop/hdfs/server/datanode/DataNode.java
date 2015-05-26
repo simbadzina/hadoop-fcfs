@@ -995,10 +995,10 @@ public class DataNode extends ReconfigurableBase
   
   // calls specific to BP
   public void notifyNamenodePendingAsync(
-      ExtendedBlock block, String delHint, String storageUuid) {
+      ExtendedBlock block, String delHint, String storageUuid,int pipelineSize) {
     BPOfferService bpos = blockPoolManager.get(block.getBlockPoolId());
     if(bpos != null) {
-      bpos.notifyNamenodePendingAsync(block, delHint, storageUuid);
+      bpos.notifyNamenodePendingAsync(block, delHint, storageUuid,pipelineSize);
     } else {
       LOG.error("Cannot find BPOfferService for reporting block received for bpid="
           + block.getBlockPoolId());

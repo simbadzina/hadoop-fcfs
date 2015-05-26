@@ -27,6 +27,7 @@ public class ReceivedDeletedBlockInfo {
   Block block;
   BlockStatus status;
   String delHints;
+  int numAsync;
 
   public static enum BlockStatus {
     RECEIVING_BLOCK(1),
@@ -58,9 +59,15 @@ public class ReceivedDeletedBlockInfo {
 
   public ReceivedDeletedBlockInfo(
       Block blk, BlockStatus status, String delHints) {
+    this(blk,status,delHints,0);
+  }
+  
+  public ReceivedDeletedBlockInfo(
+      Block blk, BlockStatus status, String delHints,int numAsync) {
     this.block = blk;
     this.status = status;
     this.delHints = delHints;
+    this.numAsync = numAsync;
   }
 
   public Block getBlock() {
@@ -81,6 +88,14 @@ public class ReceivedDeletedBlockInfo {
 
   public BlockStatus getStatus() {
     return status;
+  }
+  
+  public int getNumAsync(){
+    return numAsync;
+  }
+  
+  public void setNumAsync(int numAsync){
+    this.numAsync = numAsync;
   }
 
   @Override

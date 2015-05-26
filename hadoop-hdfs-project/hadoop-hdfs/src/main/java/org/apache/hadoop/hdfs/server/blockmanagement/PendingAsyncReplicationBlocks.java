@@ -56,11 +56,11 @@ public class PendingAsyncReplicationBlocks {
     }
   }
 
-  void insert(Block block) {
+  void insert(Block block,int numAsync) {
     synchronized (pendingReplications) {
       PendingAsyncBlockInfo found = pendingReplications.get(block);
       if (found== null) {
-        found = new PendingAsyncBlockInfo();
+        found = new PendingAsyncBlockInfo(numAsync);
         pendingReplications.put(block, found);
         blockIdMapping.put(block.getBlockId(), found);
       } else {
@@ -95,7 +95,10 @@ public class PendingAsyncReplicationBlocks {
         }
         LOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
       }
-      
+      else
+      {
+        LOG.info("async_remove, " + block.getBlockId() + ",notfound");
+      }
     }
   }
 
@@ -145,9 +148,9 @@ public class PendingAsyncReplicationBlocks {
     private long timeStamp;
     private int numNodes;
 
-    PendingAsyncBlockInfo() {
+    PendingAsyncBlockInfo(int numAsync) {
       this.timeStamp = System.currentTimeMillis();
-      this.numNodes = 1;
+      this.numNodes = numAsync;
     }
 
     long getTimeStamp() {
@@ -165,6 +168,10 @@ public class PendingAsyncReplicationBlocks {
 
     public void increment(){
       numNodes++;
+    }
+    
+    public void increment(int numAsync){
+      numNodes += numAsync;
     }
 
     public void decrement(){

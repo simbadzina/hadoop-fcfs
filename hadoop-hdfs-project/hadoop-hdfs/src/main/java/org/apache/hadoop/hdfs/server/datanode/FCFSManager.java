@@ -232,17 +232,22 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
   }
 
 
-  boolean shouldSegment(int position,int numImmediate,int pipelineSize){
+  boolean shouldSegment(int position,int numImmediate,int pipelineSize,String flowName){
+    
     //always return false for last datanode in pipeline
     if(position+1 >= pipelineSize){
       return false;
     }
     
     //segment is the next datanode should be written to asynchronously
-    return isAsyncWrite(position+1,numImmediate);
+    return isAsyncWrite(position+1,numImmediate,flowName);
   }
 
-  synchronized boolean isAsyncWrite(int position,int numImmediate){
+  synchronized boolean isAsyncWrite(int position,int numImmediate,String flowName){
+    if(!flowName.contains("attempt")){
+      return false;
+    }
+    
     //numImmediateWrites < 1 indicates no segmentation
     if(numImmediate < 1){
       return false;
@@ -269,6 +274,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
             try{
               LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
               this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+              this.addAsyncWrite();
               LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
             }catch(IOException e){
               LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
@@ -305,7 +311,8 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
             "\nFCFS_STAT_PEN_RECEIVE, " + receives.getSize()+
             "\nFCFS_STAT_NUM_QUEUE, " + receives.getNumQueues()+
             "\nFCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity+
-            "\nFCFS_STAT_RAW_ACTIVITY, " + rawActivity);
+            "\nFCFS_STAT_RAW_ACTIVITY, " + rawActivity+
+            "\nFCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
 
 
   }

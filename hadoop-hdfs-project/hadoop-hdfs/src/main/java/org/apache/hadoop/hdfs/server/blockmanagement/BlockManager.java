@@ -1442,7 +1442,7 @@ public class BlockManager {
           // do not schedule more if enough replicas is already pending
           NumberReplicas numReplicas = countNodes(block);
           numEffectiveReplicas = numReplicas.liveReplicas() +
-            pendingReplications.getNumReplicas(block);
+            pendingReplications.getNumReplicas(block) + pendingAsync.numPending(block);
 
           if (numEffectiveReplicas >= requiredReplication) {
             if ( (pendingReplications.getNumReplicas(block) > 0) ||
@@ -3232,9 +3232,8 @@ public class BlockManager {
         processAndHandleReportedBlock(storageInfo, rdbi.getBlock(),
                                       ReplicaState.RBW, null);
         break;
-      case PENDING_ASYNC:
-        LOG.info("PENDING_ASYNC at namenode" + rdbi.getBlock().getBlockId());
-        pendingAsync.insert(rdbi.getBlock());
+      case PENDING_ASYNC:  
+        pendingAsync.insert(rdbi.getBlock(),rdbi.getNumAsync());
         break;
       default:
         String msg = 
@@ -3448,7 +3447,7 @@ public class BlockManager {
       final NumberReplicas n = countNodes(block);
       int numPending = pendingAsync.numPending(block);
       short newExpected = (short)(expected-numPending);
-      LOG.info("CHECKREPLICATOIN:" +
+      LOG.info("CHECKREPLICATION: " + block.getBlockId() + 
       "\nnumLive  : " + n.liveReplicas() +
       "\nnumPending  : " + numPending +
       "\nexpected    : " + expected +

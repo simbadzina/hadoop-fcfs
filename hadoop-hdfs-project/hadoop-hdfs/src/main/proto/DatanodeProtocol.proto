@@ -292,6 +292,7 @@ message ReceivedDeletedBlockInfoProto {
   required BlockProto block = 1;
   required BlockStatus status = 3;
   optional string deleteHint = 2;
+  optional uint32 numAsync = 4 [default = 0 ];
 }
 
 /**

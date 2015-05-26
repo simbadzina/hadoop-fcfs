@@ -686,8 +686,8 @@ class DataXceiver extends Receiver implements Runnable {
 
 
 
-    boolean shouldSegment = fcfsManager.shouldSegment(position, numImmediate, pipelineSize) && flowName.contains("attempt");
-    boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate);
+    boolean shouldSegment = fcfsManager.shouldSegment(position, numImmediate, pipelineSize,flowName);
+    boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
     fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
 
     LOG.info("FCFS_INFO" + 
@@ -697,7 +697,8 @@ class DataXceiver extends Receiver implements Runnable {
         "\nNUM_IMMEDIATE : " + numImmediate + 
         "\nSEGMENTING    : " + shouldSegment + 
         "\nPRIORITY      : " + replicationPriority + 
-        "\nFLOW_NAME     : " + flowName);
+        "\nFLOW_NAME     : " + flowName+
+        "\nIS_CLIENT     : " + isClient);
 
     /* **
      * If segmenting the pipeline, set the targets array to be an empty array.
@@ -890,11 +891,9 @@ class DataXceiver extends Receiver implements Runnable {
           /** 
            * Send info about asynchronous blocks
            */
-          LOG.info("PENDING_ASYNC at datanode " + block.getBlockId());
-          if(position==numImmediate-1 && (pipelineSize>numImmediate)){
-            for(int i = 0 ; i < pipelineSize; i++){
-                datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid);
-            }
+          if(shouldSegment && position==numImmediate-1 && (pipelineSize>numImmediate)){
+            LOG.info("PENDING_ASYNC at datanode, " + pipelineSize + ", " + block.getBlockId());
+              datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid,pipelineSize);
           }
           blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
               mirrorAddr, null, targets, false);

@@ -1205,9 +1205,13 @@ public class PBHelper {
     }
     builder.setStatus(status);
     
+    builder.setNumAsync(receivedDeletedBlockInfo.getNumAsync());
+    
     if (receivedDeletedBlockInfo.getDelHints() != null) {
       builder.setDeleteHint(receivedDeletedBlockInfo.getDelHints());
     }
+
+    
     return builder.setBlock(PBHelper.convert(receivedDeletedBlockInfo.getBlock()))
         .build();
   }
@@ -1232,7 +1236,8 @@ public class PBHelper {
     return new ReceivedDeletedBlockInfo(
         PBHelper.convert(proto.getBlock()),
         status,
-        proto.hasDeleteHint() ? proto.getDeleteHint() : null);
+        proto.hasDeleteHint() ? proto.getDeleteHint() : null,
+        proto.hasNumAsync() ? proto.getNumAsync() : 0);
   }
   
   public static NamespaceInfoProto convert(NamespaceInfo info) {

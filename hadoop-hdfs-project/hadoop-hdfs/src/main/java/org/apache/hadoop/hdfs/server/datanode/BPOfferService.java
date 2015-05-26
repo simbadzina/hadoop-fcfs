@@ -244,18 +244,17 @@ class BPOfferService {
   }
   
   void notifyNamenodePendingAsync(
-      ExtendedBlock block, String delHint, String storageUuid) {
+      ExtendedBlock block, String delHint, String storageUuid,int pipelineSize) {
     checkBlock(block);
     ReceivedDeletedBlockInfo bInfo = new ReceivedDeletedBlockInfo(
         block.getLocalBlock(),
         ReceivedDeletedBlockInfo.BlockStatus.PENDING_ASYNC,
-        delHint);
+        delHint,pipelineSize);
 
     for (BPServiceActor actor : bpServices) {
       actor.notifyNamenodeBlock(bInfo, storageUuid, true);
     }
   }
-
 
   private void checkBlock(ExtendedBlock block) {
     Preconditions.checkArgument(block != null,

@@ -320,7 +320,7 @@ class BPServiceActor implements Runnable {
     }
     getIncrementalBRMapForStorage(storage).putBlockInfo(bInfo);
   }
-
+  
   /*
    * Informing the name node could take a long long time! Should we wait
    * till namenode is informed before responding with success to the
@@ -339,6 +339,8 @@ class BPServiceActor implements Runnable {
       }
     }
   }
+  
+
 
   void notifyNamenodeDeletedBlock(
       ReceivedDeletedBlockInfo bInfo, String storageUuid) {
