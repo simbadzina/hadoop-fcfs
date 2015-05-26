@@ -43,10 +43,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private int maxConcurrentReceives;
 
   public int bufferSize;
-
-
-
-
+  
+  private long blockBufferSize;
 
 
 
@@ -90,6 +88,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void removeImmWrite(){
     numImmWrite.getAndDecrement();
   }
+  
+  public long getBlockBufferSize(){
+    return blockBufferSize;
+  }
 
   public FCFSManager(Configuration conf, DataNode datanode) throws IOException{
     this.datanode = datanode;
@@ -110,7 +112,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
         DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT);
     statInterval = conf.getLong(DFSConfigKeys.FCFS_STAT_INTERVAL_KEY,
         DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT);
-
+    blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
 
     numImmWrite = new AtomicInteger(0);
     numAsyncWrite = new AtomicInteger(0);
@@ -136,6 +138,57 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
   }
 
 
+  class PendingWrite implements Comparable<PendingWrite>,Runnable{
+    private final BlockReceiver blockReceiver;
+    private final PendingForward toForward;
+    private final long timeCreated;
+    private final int pipelineSize;
+
+    long bCount;
+    private final FCFSManager manager;
+
+    public PendingWrite(BlockReceiver blockReceiver, FCFSManager manager, PendingForward toForward,int pipelineSize){
+      this.timeCreated = System.currentTimeMillis();
+      this.blockReceiver = blockReceiver;
+      this.bCount = blockReceiver.getBlockSize();
+      this.manager = manager;
+      this.toForward = toForward;
+      this.pipelineSize = pipelineSize;
+    }
+
+
+
+    @Override
+    public int compareTo(PendingWrite other) {
+      return  Long.valueOf(timeCreated).compareTo(other.timeCreated);
+    }
+
+    public long getAge(){
+      return System.currentTimeMillis() - timeCreated;
+    }
+
+    @Override
+    /*
+     * Called the delayed close function for a block receiver to flush buffer contents
+     * to disk and finalize the block
+     */
+    public void run() {
+      try{
+        try{
+          blockReceiver.delayedClose();
+        }catch(Exception e){
+          LOG.warn("PendingWriteException : " + e.toString());
+        }
+        if(this.toForward != null){
+          this.manager.addPendingForward(this.toForward);
+        }  
+      }finally{
+        this.manager.resume();
+      }
+    }
+
+  }
+  
   class PendingForward implements Comparable<PendingForward>{
     private final ExtendedBlock block;
     private final DatanodeInfo[] targets;
@@ -231,6 +284,10 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     pendingForwards.remove();
   }
 
+
+  public boolean shouldWriteDirect(int position,int numImmediate,String flowName) {
+    return isAsyncWrite(position,numImmediate,flowName);
+  }
 
   boolean shouldSegment(int position,int numImmediate,int pipelineSize,String flowName){
     
@@ -839,4 +896,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     }
   }
 
+
+
+ 
 }

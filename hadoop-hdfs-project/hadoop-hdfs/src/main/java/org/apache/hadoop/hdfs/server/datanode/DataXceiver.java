@@ -687,6 +687,7 @@ class DataXceiver extends Receiver implements Runnable {
 
 
     boolean shouldSegment = fcfsManager.shouldSegment(position, numImmediate, pipelineSize,flowName);
+    boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName);
     boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
     fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
 
@@ -925,8 +926,9 @@ class DataXceiver extends Receiver implements Runnable {
           stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
         
         
-        
+        if(isDirectWrite){
         datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+        }
         LOG.info("Received " + block + " src: " + remoteAddress + " dest: "
             + localAddress + " of size " + block.getNumBytes());
 
