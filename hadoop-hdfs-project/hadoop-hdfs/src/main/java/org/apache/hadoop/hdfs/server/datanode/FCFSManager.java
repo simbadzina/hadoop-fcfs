@@ -36,6 +36,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public static final Log LOG = DataNode.LOG;
 
   private Queue<PendingForward> pendingForwards;
+  private Queue<PendingWrite> pendingWrites;
 
   private AtomicInteger numImmWrite;
   private AtomicInteger numAsyncWrite;
@@ -74,7 +75,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private long lowActivityMean = 1;
 
   public void addAsyncWrite(){
-    numAsyncWrite.getAndDecrement();
+    numAsyncWrite.getAndIncrement();
   }
 
   public void removeAsyncWrite(){
@@ -98,6 +99,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     this.conf = conf;
 
     pendingForwards = new PriorityBlockingQueue<PendingForward>();
+    pendingWrites = new PriorityBlockingQueue<PendingWrite>();
 
     maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
         DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
@@ -142,18 +144,14 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     private final BlockReceiver blockReceiver;
     private final PendingForward toForward;
     private final long timeCreated;
-    private final int pipelineSize;
 
-    long bCount;
     private final FCFSManager manager;
 
-    public PendingWrite(BlockReceiver blockReceiver, FCFSManager manager, PendingForward toForward,int pipelineSize){
+    public PendingWrite(BlockReceiver blockReceiver, FCFSManager manager, PendingForward toForward){
       this.timeCreated = System.currentTimeMillis();
       this.blockReceiver = blockReceiver;
-      this.bCount = blockReceiver.getBlockSize();
       this.manager = manager;
       this.toForward = toForward;
-      this.pipelineSize = pipelineSize;
     }
 
 
@@ -176,10 +174,11 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       try{
         try{
           blockReceiver.delayedClose();
+          removeAsyncWrite();
         }catch(Exception e){
           LOG.warn("PendingWriteException : " + e.toString());
         }
-        if(this.toForward != null){
+        if(this.toForward.hasTargets()){
           this.manager.addPendingForward(this.toForward);
         }  
       }finally{
@@ -235,8 +234,29 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
         LOG.warn(e.toString());
       }
     }
+    
+    public boolean hasTargets(){
+      if(targets == null){
+        return false;
+      }
+      return targets.length > 0;
+    }
   }
 
+
+  void addPendingWrite(BlockReceiver receiver,ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, 
+      float replicationPriority, String flowName,int numImmediate,int pipelineSize){
+
+    LOG.warn("DZUDE : Adding pending write 1");
+    PendingForward toForward = null;
+    toForward = new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority,flowName,numImmediate,pipelineSize);
+
+    if(receiver==null){
+      LOG.warn("SILO : receiver is null");
+    }
+    addAsyncWrite();
+    pendingWrites.add(new PendingWrite(receiver,this,toForward));
+  }
 
 
   public void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, float replicationPriority, String flowName,int numImmediate,int pipelineSize){
@@ -286,7 +306,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
 
   public boolean shouldWriteDirect(int position,int numImmediate,String flowName) {
-    return isAsyncWrite(position,numImmediate,flowName);
+    return !isAsyncWrite(position,numImmediate,flowName);
   }
 
   boolean shouldSegment(int position,int numImmediate,int pipelineSize,String flowName){
@@ -320,25 +340,30 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
   void processQueue(){
 
+    
     //testing if disk activity is low
     if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
-
-      //testing if we don't have too many activity receives
-      if(numAsyncWrite.get() < maxConcurrentReceives){
-        if(!receives.isEmpty()){
-          PendingReceive toReceive = receives.getReceive();
-          if(toReceive != null){
-            try{
-              LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
-              this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
-              this.addAsyncWrite();
-              LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
-            }catch(IOException e){
-              LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
-            }
-          }
-        }        
+      if(!pendingWrites.isEmpty()){
+        pendingWrites.remove().run();
       }
+      
+    }
+    
+
+  //testing if we don't have too many activity receives
+    if(numAsyncWrite.get() < maxConcurrentReceives){
+      if(!receives.isEmpty()){
+        PendingReceive toReceive = receives.getReceive();
+        if(toReceive != null){
+          try{
+            LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
+            this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+            LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
+          }catch(IOException e){
+            LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
+          }
+        }
+      }        
     }
 
   }
@@ -402,7 +427,8 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
         calculateSpeeds();
         processQueue();
       }catch(Exception e){
-        LOG.warn("YOHWE fcfs run : " + e.toString());
+        LOG.warn("YOHWE FCFS run : " + e.toString());
+        e.printStackTrace();
       }
       try{
         synchronized(this){

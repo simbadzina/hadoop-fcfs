@@ -90,6 +90,8 @@ class BlockReceiver implements Closeable {
 
   FCFSManager manager;
   BlockBufferedOutputStream bout;
+  private final String blockTag;
+  private boolean isClosed = false;
   private long boutSize;
   private boolean isDirectWrite;
   private boolean reachedPacketResponderClose = false;
@@ -173,7 +175,7 @@ class BlockReceiver implements Closeable {
       final boolean allowLazyPersist,
       final boolean pinning)throws IOException {
     this(block,storageType,in,inAddr,myAddr,stage,newGs,minBytesRcvd,maxBytesRcvd,clientname,srcDataNode,
-        datanode,requestedChecksum,cachingStrategy,allowLazyPersist,pinning,true);
+        datanode,requestedChecksum,cachingStrategy,allowLazyPersist,pinning,true,"");
   }
 
 
@@ -186,8 +188,9 @@ class BlockReceiver implements Closeable {
       final DataNode datanode, DataChecksum requestedChecksum,
       CachingStrategy cachingStrategy,
       final boolean allowLazyPersist,
-      final boolean pinning,boolean isDirectWrite) throws IOException {
+      final boolean pinning,boolean isDirectWrite,String blockTag) throws IOException {
     try{
+      this.blockTag = blockTag;
       this.block = block;
       this.in = in;
       this.inAddr = inAddr;
@@ -348,6 +351,12 @@ class BlockReceiver implements Closeable {
    */
   @Override
   public void close() throws IOException {
+    
+    if((!isClosed) && (!blockTag.isEmpty())){
+      isClosed = true;
+      LOG.info("BLOCKTAG," + blockTag);
+    }
+    
     packetReceiver.close();
 
     IOException ioe = null;

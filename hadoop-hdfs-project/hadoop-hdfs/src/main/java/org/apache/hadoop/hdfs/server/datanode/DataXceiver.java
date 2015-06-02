@@ -661,7 +661,7 @@ class DataXceiver extends Receiver implements Runnable {
     final boolean isTransfer = stage == BlockConstructionStage.TRANSFER_RBW
         || stage == BlockConstructionStage.TRANSFER_FINALIZED;
     long size = 0;
-
+    String blockTag = "";
 
 
     DatanodeInfo[] targets = inputTargets;
@@ -690,16 +690,21 @@ class DataXceiver extends Receiver implements Runnable {
     boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName);
     boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
     fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
-
+    
+    if(flowName.contains("attempt")){
+    blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
+    }
+  
     LOG.info("FCFS_INFO" + 
         "\nBLOCK         : " + block +
         "\nPIPELINESIZE  : " + pipelineSize +
         "\nPOSITION      : " + position +
-        "\nNUM_IMMEDIATE : " + numImmediate + 
+        "\nNUMIMMEDIATE : " + numImmediate + 
         "\nSEGMENTING    : " + shouldSegment + 
         "\nPRIORITY      : " + replicationPriority + 
         "\nFLOW_NAME     : " + flowName+
-        "\nIS_CLIENT     : " + isClient);
+        "\nISCLIENT     : " + isClient +
+        "\nISDIRECTWRITE: " + isDirectWrite);
 
     /* **
      * If segmenting the pipeline, set the targets array to be an empty array.
@@ -764,7 +769,7 @@ class DataXceiver extends Receiver implements Runnable {
             peer.getLocalAddressString(),
             stage, latestGenerationStamp, minBytesRcvd, maxBytesRcvd,
             clientname, srcDataNode, datanode, requestedChecksum,
-            cachingStrategy, allowLazyPersist, pinning);
+            cachingStrategy, allowLazyPersist, pinning,isDirectWrite,blockTag);
 
         storageUuid = blockReceiver.getStorageUuid();
       } else {
@@ -886,9 +891,10 @@ class DataXceiver extends Receiver implements Runnable {
       // receive the block and mirror to the next target
       if (blockReceiver != null) {
         String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
-        try{
-          if(isAsyncWrite){fcfsManager.addAsyncWrite();}
+        try{ 
+        if(!isAsyncWrite){
           fcfsManager.addImmWrite();
+          }
           /** 
            * Send info about asynchronous blocks
            */
@@ -898,9 +904,15 @@ class DataXceiver extends Receiver implements Runnable {
           }
           blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
               mirrorAddr, null, targets, false);
+          if(!isDirectWrite){
+            fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
+          }
+          
         }finally{
-          if(isAsyncWrite){fcfsManager.removeAsyncWrite();}
-          fcfsManager.removeImmWrite();
+          if(!isAsyncWrite){
+            fcfsManager.removeImmWrite();
+           }
+          
         }
         
         // send close-ack for transfer-RBW/Finalized 
@@ -947,12 +959,14 @@ class DataXceiver extends Receiver implements Runnable {
       IOUtils.closeStream(mirrorIn);
       IOUtils.closeStream(replyOut);
       IOUtils.closeSocket(mirrorSock);
-      IOUtils.closeStream(blockReceiver);
+      if(isDirectWrite){
+        IOUtils.closeStream(blockReceiver);
+        if(shouldSegment){
+          fcfsManager.addPendingForward(block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
+        }
+      }
+      
       blockReceiver = null;
-    }
-
-    if(shouldSegment){
-      fcfsManager.addPendingForward(block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
     }
 
     //update metrics
