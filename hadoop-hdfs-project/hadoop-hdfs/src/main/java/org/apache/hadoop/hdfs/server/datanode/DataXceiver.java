@@ -689,289 +689,298 @@ class DataXceiver extends Receiver implements Runnable {
     boolean shouldSegment = fcfsManager.shouldSegment(position, numImmediate, pipelineSize,flowName);
     boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName);
     boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
-    fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
-    
-    if(flowName.contains("attempt")){
-    blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
-    }
-  
-    LOG.info("FCFS_INFO" + 
-        "\nBLOCK         : " + block +
-        "\nPIPELINESIZE  : " + pipelineSize +
-        "\nPOSITION      : " + position +
-        "\nNUMIMMEDIATE : " + numImmediate + 
-        "\nSEGMENTING    : " + shouldSegment + 
-        "\nPRIORITY      : " + replicationPriority + 
-        "\nFLOW_NAME     : " + flowName+
-        "\nISCLIENT     : " + isClient +
-        "\nISDIRECTWRITE: " + isDirectWrite);
+    try{
+      fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
 
-    /* **
-     * If segmenting the pipeline, set the targets array to be an empty array.
-     * Save is first so it can be used by the pendingForward
-     */
-    if(shouldSegment){
-      forwardTargets = targets;
-      targets = new DatanodeInfo[0];
-
-      forwardTargetStorageTypes = targetStorageTypes;
-      targetStorageTypes = new StorageType[0];
-    }
-
-
-
-
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("opWriteBlock: stage=" + stage + ", clientname=" + clientname 
-          + "\n  block  =" + block + ", newGs=" + latestGenerationStamp
-          + ", bytesRcvd=[" + minBytesRcvd + ", " + maxBytesRcvd + "]"
-          + "\n  targets=" + Arrays.asList(targets)
-          + "; pipelineSize=" + pipelineSize + ", srcDataNode=" + srcDataNode
-          + ", pinning=" + pinning);
-      LOG.debug("isDatanode=" + isDatanode
-          + ", isClient=" + isClient
-          + ", isTransfer=" + isTransfer);
-      LOG.debug("writeBlock receive buf size " + peer.getReceiveBufferSize() +
-          " tcp no delay " + peer.getTcpNoDelay());
-    }
-
-    // We later mutate block's generation stamp and length, but we need to
-    // forward the original version of the block to downstream mirrors, so
-    // make a copy here.
-    final ExtendedBlock originalBlock = new ExtendedBlock(block);
-    if (block.getNumBytes() == 0) {
-      block.setNumBytes(dataXceiverServer.estimateBlockSize);
-    }
-    LOG.info("Receiving " + block + " src: " + remoteAddress + " dest: "
-        + localAddress);
-
-    // reply to upstream datanode or client 
-    final DataOutputStream replyOut = new DataOutputStream(
-        new BufferedOutputStream(
-            getOutputStream(),
-            smallBufferSize));
-    checkAccess(replyOut, isClient, block, blockToken,
-        Op.WRITE_BLOCK, BlockTokenIdentifier.AccessMode.WRITE);
-
-    DataOutputStream mirrorOut = null;  // stream to next target
-    DataInputStream mirrorIn = null;    // reply from next target
-    Socket mirrorSock = null;           // socket to next target
-    String mirrorNode = null;           // the name:port of next target
-    String firstBadLink = "";           // first datanode that failed in connection setup
-    Status mirrorInStatus = SUCCESS;
-    final String storageUuid;
-    try {
-      if (isDatanode || 
-          stage != BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
-        // open a block receiver
-        blockReceiver = new BlockReceiver(block, storageType, in,
-            peer.getRemoteAddressString(),
-            peer.getLocalAddressString(),
-            stage, latestGenerationStamp, minBytesRcvd, maxBytesRcvd,
-            clientname, srcDataNode, datanode, requestedChecksum,
-            cachingStrategy, allowLazyPersist, pinning,isDirectWrite,blockTag);
-
-        storageUuid = blockReceiver.getStorageUuid();
-      } else {
-        storageUuid = datanode.data.recoverClose(
-            block, latestGenerationStamp, minBytesRcvd);
+      if(flowName.contains("attempt")){
+        blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
       }
 
-      //
-      // Connect to downstream machine, if appropriate
-      //
-      if (targets.length > 0) {
-        InetSocketAddress mirrorTarget = null;
-        // Connect to backup machine
-        mirrorNode = targets[0].getXferAddr(connectToDnViaHostname);
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Connecting to datanode " + mirrorNode);
-        }
-        mirrorTarget = NetUtils.createSocketAddr(mirrorNode);
-        mirrorSock = datanode.newSocket();
-        try {
-          int timeoutValue = dnConf.socketTimeout
-              + (HdfsServerConstants.READ_TIMEOUT_EXTENSION * targets.length);
-          int writeTimeout = dnConf.socketWriteTimeout + 
-              (HdfsServerConstants.WRITE_TIMEOUT_EXTENSION * targets.length);
-          NetUtils.connect(mirrorSock, mirrorTarget, timeoutValue);
-          mirrorSock.setSoTimeout(timeoutValue);
-          mirrorSock.setSendBufferSize(HdfsConstants.DEFAULT_DATA_SOCKET_SIZE);
+      LOG.info("FCFS_INFO" + 
+          "\nBLOCK         : " + block +
+          "\nPIPELINESIZE  : " + pipelineSize +
+          "\nPOSITION      : " + position +
+          "\nNUMIMMEDIATE : " + numImmediate + 
+          "\nSEGMENTING    : " + shouldSegment + 
+          "\nPRIORITY      : " + replicationPriority + 
+          "\nFLOW_NAME     : " + flowName+
+          "\nISCLIENT     : " + isClient +
+          "\nISDIRECTWRITE: " + isDirectWrite);
 
-          OutputStream unbufMirrorOut = NetUtils.getOutputStream(mirrorSock,
-              writeTimeout);
-          InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
-          DataEncryptionKeyFactory keyFactory =
-              datanode.getDataEncryptionKeyFactoryForBlock(block);
-          IOStreamPair saslStreams = datanode.saslClient.socketSend(mirrorSock,
-              unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken, targets[0]);
-          unbufMirrorOut = saslStreams.out;
-          unbufMirrorIn = saslStreams.in;
-          mirrorOut = new DataOutputStream(new BufferedOutputStream(unbufMirrorOut,
+      /* **
+       * If segmenting the pipeline, set the targets array to be an empty array.
+       * Save is first so it can be used by the pendingForward
+       */
+      if(shouldSegment){
+        forwardTargets = targets;
+        targets = new DatanodeInfo[0];
+
+        forwardTargetStorageTypes = targetStorageTypes;
+        targetStorageTypes = new StorageType[0];
+      }
+
+
+
+
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("opWriteBlock: stage=" + stage + ", clientname=" + clientname 
+            + "\n  block  =" + block + ", newGs=" + latestGenerationStamp
+            + ", bytesRcvd=[" + minBytesRcvd + ", " + maxBytesRcvd + "]"
+            + "\n  targets=" + Arrays.asList(targets)
+            + "; pipelineSize=" + pipelineSize + ", srcDataNode=" + srcDataNode
+            + ", pinning=" + pinning);
+        LOG.debug("isDatanode=" + isDatanode
+            + ", isClient=" + isClient
+            + ", isTransfer=" + isTransfer);
+        LOG.debug("writeBlock receive buf size " + peer.getReceiveBufferSize() +
+            " tcp no delay " + peer.getTcpNoDelay());
+      }
+
+      // We later mutate block's generation stamp and length, but we need to
+      // forward the original version of the block to downstream mirrors, so
+      // make a copy here.
+      final ExtendedBlock originalBlock = new ExtendedBlock(block);
+      if (block.getNumBytes() == 0) {
+        block.setNumBytes(dataXceiverServer.estimateBlockSize);
+      }
+      LOG.info("Receiving " + block + " src: " + remoteAddress + " dest: "
+          + localAddress);
+
+      // reply to upstream datanode or client 
+      final DataOutputStream replyOut = new DataOutputStream(
+          new BufferedOutputStream(
+              getOutputStream(),
               smallBufferSize));
-          mirrorIn = new DataInputStream(unbufMirrorIn);
+      checkAccess(replyOut, isClient, block, blockToken,
+          Op.WRITE_BLOCK, BlockTokenIdentifier.AccessMode.WRITE);
 
-          // Do not propagate allowLazyPersist to downstream DataNodes.
-          if (targetPinnings != null && targetPinnings.length > 0) {
-            new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
-                blockToken, clientname, targets, targetStorageTypes, srcDataNode,
-                stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
-                latestGenerationStamp, requestedChecksum, cachingStrategy,
-                false, targetPinnings[0], targetPinnings,replicationPriority,flowName,numImmediate);
-          } else {
-            new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
-                blockToken, clientname, targets, targetStorageTypes, srcDataNode,
-                stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
-                latestGenerationStamp, requestedChecksum, cachingStrategy,
-                false, false, targetPinnings,replicationPriority,flowName,numImmediate);
+      DataOutputStream mirrorOut = null;  // stream to next target
+      DataInputStream mirrorIn = null;    // reply from next target
+      Socket mirrorSock = null;           // socket to next target
+      String mirrorNode = null;           // the name:port of next target
+      String firstBadLink = "";           // first datanode that failed in connection setup
+      Status mirrorInStatus = SUCCESS;
+      final String storageUuid;
+      try {
+        if (isDatanode || 
+            stage != BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
+          // open a block receiver
+          blockReceiver = new BlockReceiver(block, storageType, in,
+              peer.getRemoteAddressString(),
+              peer.getLocalAddressString(),
+              stage, latestGenerationStamp, minBytesRcvd, maxBytesRcvd,
+              clientname, srcDataNode, datanode, requestedChecksum,
+              cachingStrategy, allowLazyPersist, pinning,isDirectWrite,blockTag);
+
+          storageUuid = blockReceiver.getStorageUuid();
+        } else {
+          storageUuid = datanode.data.recoverClose(
+              block, latestGenerationStamp, minBytesRcvd);
+        }
+
+        //
+        // Connect to downstream machine, if appropriate
+        //
+        if (targets.length > 0) {
+          InetSocketAddress mirrorTarget = null;
+          // Connect to backup machine
+          mirrorNode = targets[0].getXferAddr(connectToDnViaHostname);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Connecting to datanode " + mirrorNode);
           }
+          mirrorTarget = NetUtils.createSocketAddr(mirrorNode);
+          mirrorSock = datanode.newSocket();
+          try {
+            int timeoutValue = dnConf.socketTimeout
+                + (HdfsServerConstants.READ_TIMEOUT_EXTENSION * targets.length);
+            int writeTimeout = dnConf.socketWriteTimeout + 
+                (HdfsServerConstants.WRITE_TIMEOUT_EXTENSION * targets.length);
+            NetUtils.connect(mirrorSock, mirrorTarget, timeoutValue);
+            mirrorSock.setSoTimeout(timeoutValue);
+            mirrorSock.setSendBufferSize(HdfsConstants.DEFAULT_DATA_SOCKET_SIZE);
 
-          mirrorOut.flush();
+            OutputStream unbufMirrorOut = NetUtils.getOutputStream(mirrorSock,
+                writeTimeout);
+            InputStream unbufMirrorIn = NetUtils.getInputStream(mirrorSock);
+            DataEncryptionKeyFactory keyFactory =
+                datanode.getDataEncryptionKeyFactoryForBlock(block);
+            IOStreamPair saslStreams = datanode.saslClient.socketSend(mirrorSock,
+                unbufMirrorOut, unbufMirrorIn, keyFactory, blockToken, targets[0]);
+            unbufMirrorOut = saslStreams.out;
+            unbufMirrorIn = saslStreams.in;
+            mirrorOut = new DataOutputStream(new BufferedOutputStream(unbufMirrorOut,
+                smallBufferSize));
+            mirrorIn = new DataInputStream(unbufMirrorIn);
 
-          DataNodeFaultInjector.get().writeBlockAfterFlush();
+            // Do not propagate allowLazyPersist to downstream DataNodes.
+            if (targetPinnings != null && targetPinnings.length > 0) {
+              new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
+                  blockToken, clientname, targets, targetStorageTypes, srcDataNode,
+                  stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
+                  latestGenerationStamp, requestedChecksum, cachingStrategy,
+                  false, targetPinnings[0], targetPinnings,replicationPriority,flowName,numImmediate);
+            } else {
+              new Sender(mirrorOut).FCFSwriteBlock(originalBlock, targetStorageTypes[0],
+                  blockToken, clientname, targets, targetStorageTypes, srcDataNode,
+                  stage, pipelineSize, minBytesRcvd, maxBytesRcvd,
+                  latestGenerationStamp, requestedChecksum, cachingStrategy,
+                  false, false, targetPinnings,replicationPriority,flowName,numImmediate);
+            }
 
-          // read connect ack (only for clients, not for replication req)
-          if (isClient) {
-            BlockOpResponseProto connectAck =
-                BlockOpResponseProto.parseFrom(PBHelper.vintPrefixed(mirrorIn));
-            mirrorInStatus = connectAck.getStatus();
-            firstBadLink = connectAck.getFirstBadLink();
-            if (LOG.isDebugEnabled() || mirrorInStatus != SUCCESS) {
-              LOG.info("Datanode " + targets.length +
-                  " got response for connect ack " +
-                  " from downstream datanode with firstbadlink as " +
-                  firstBadLink);
+            mirrorOut.flush();
+
+            DataNodeFaultInjector.get().writeBlockAfterFlush();
+
+            // read connect ack (only for clients, not for replication req)
+            if (isClient) {
+              BlockOpResponseProto connectAck =
+                  BlockOpResponseProto.parseFrom(PBHelper.vintPrefixed(mirrorIn));
+              mirrorInStatus = connectAck.getStatus();
+              firstBadLink = connectAck.getFirstBadLink();
+              if (LOG.isDebugEnabled() || mirrorInStatus != SUCCESS) {
+                LOG.info("Datanode " + targets.length +
+                    " got response for connect ack " +
+                    " from downstream datanode with firstbadlink as " +
+                    firstBadLink);
+              }
+            }
+
+          } catch (IOException e) {
+            if (isClient) {
+              BlockOpResponseProto.newBuilder()
+              .setStatus(ERROR)
+              // NB: Unconditionally using the xfer addr w/o hostname
+              .setFirstBadLink(targets[0].getXferAddr())
+              .build()
+              .writeDelimitedTo(replyOut);
+              replyOut.flush();
+            }
+            IOUtils.closeStream(mirrorOut);
+            mirrorOut = null;
+            IOUtils.closeStream(mirrorIn);
+            mirrorIn = null;
+            IOUtils.closeSocket(mirrorSock);
+            mirrorSock = null;
+            if (isClient) {
+              LOG.error(datanode + ":Exception transfering block " +
+                  block + " to mirror " + mirrorNode + ": " + e);
+              throw e;
+            } else {
+              LOG.info(datanode + ":Exception transfering " +
+                  block + " to mirror " + mirrorNode +
+                  "- continuing without the mirror", e);
+              incrDatanodeNetworkErrors();
             }
           }
-
-        } catch (IOException e) {
-          if (isClient) {
-            BlockOpResponseProto.newBuilder()
-            .setStatus(ERROR)
-            // NB: Unconditionally using the xfer addr w/o hostname
-            .setFirstBadLink(targets[0].getXferAddr())
-            .build()
-            .writeDelimitedTo(replyOut);
-            replyOut.flush();
-          }
-          IOUtils.closeStream(mirrorOut);
-          mirrorOut = null;
-          IOUtils.closeStream(mirrorIn);
-          mirrorIn = null;
-          IOUtils.closeSocket(mirrorSock);
-          mirrorSock = null;
-          if (isClient) {
-            LOG.error(datanode + ":Exception transfering block " +
-                block + " to mirror " + mirrorNode + ": " + e);
-            throw e;
-          } else {
-            LOG.info(datanode + ":Exception transfering " +
-                block + " to mirror " + mirrorNode +
-                "- continuing without the mirror", e);
-            incrDatanodeNetworkErrors();
-          }
         }
-      }
 
-      // send connect-ack to source for clients and not transfer-RBW/Finalized
-      if (isClient && !isTransfer) {
-        if (LOG.isDebugEnabled() || mirrorInStatus != SUCCESS) {
-          LOG.info("Datanode " + targets.length +
-              " forwarding connect ack to upstream firstbadlink is " +
-              firstBadLink);
-        }
-        BlockOpResponseProto.newBuilder()
-        .setStatus(mirrorInStatus)
-        .setFirstBadLink(firstBadLink)
-        .build()
-        .writeDelimitedTo(replyOut);
-        replyOut.flush();
-      }
-
-      // receive the block and mirror to the next target
-      if (blockReceiver != null) {
-        String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
-        try{ 
-        if(!isAsyncWrite){
-          fcfsManager.addImmWrite();
+        // send connect-ack to source for clients and not transfer-RBW/Finalized
+        if (isClient && !isTransfer) {
+          if (LOG.isDebugEnabled() || mirrorInStatus != SUCCESS) {
+            LOG.info("Datanode " + targets.length +
+                " forwarding connect ack to upstream firstbadlink is " +
+                firstBadLink);
           }
-          /** 
-           * Send info about asynchronous blocks
-           */
-          if(shouldSegment && position==numImmediate-1 && (pipelineSize>numImmediate)){
-            LOG.info("PENDING_ASYNC at datanode, " + pipelineSize + ", " + block.getBlockId());
+          BlockOpResponseProto.newBuilder()
+          .setStatus(mirrorInStatus)
+          .setFirstBadLink(firstBadLink)
+          .build()
+          .writeDelimitedTo(replyOut);
+          replyOut.flush();
+        }
+
+        // receive the block and mirror to the next target
+        if (blockReceiver != null) {
+          String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
+          try{ 
+            if(!isAsyncWrite){
+              fcfsManager.addImmWrite();
+            }
+            /** 
+             * Send info about asynchronous blocks
+             */
+            if(shouldSegment && position==numImmediate-1 && (pipelineSize>numImmediate)){
+              LOG.info("PENDING_ASYNC at datanode, " + pipelineSize + ", " + block.getBlockId());
               datanode.notifyNamenodePendingAsync(block, DataNode.EMPTY_DEL_HINT, storageUuid,pipelineSize);
-          }
-          blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
-              mirrorAddr, null, targets, false);
-          if(!isDirectWrite){
-            fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
-          }
-          
-        }finally{
-          if(!isAsyncWrite){
-            fcfsManager.removeImmWrite();
-           }
-          
-        }
-        
-        // send close-ack for transfer-RBW/Finalized 
-        if (isTransfer) {
-          if (LOG.isTraceEnabled()) {
-            LOG.trace("TRANSFER: send close-ack");
-          }
-          writeResponse(SUCCESS, null, replyOut);
-        }
-      }
+            }
+            blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
+                mirrorAddr, null, targets, false);
+            if(!isDirectWrite){
+              fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
+            }
 
-      // update its generation stamp
-      if (isClient && 
-          stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
-        block.setGenerationStamp(latestGenerationStamp);
-        block.setNumBytes(minBytesRcvd);
-      }
+          }
+          finally{
+            if(!isAsyncWrite){
+              fcfsManager.removeImmWrite();
+            }
 
-      // if this write is for a replication request or recovering
-      // a failed close for client, then confirm block. For other client-writes,
-      // the block is finalized in the PacketResponder.
-      if (isDatanode ||
-          stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
-        
-        
+          }
+
+          // send close-ack for transfer-RBW/Finalized 
+          if (isTransfer) {
+            if (LOG.isTraceEnabled()) {
+              LOG.trace("TRANSFER: send close-ack");
+            }
+            writeResponse(SUCCESS, null, replyOut);
+          }
+        }
+
+        // update its generation stamp
+        if (isClient && 
+            stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
+          block.setGenerationStamp(latestGenerationStamp);
+          block.setNumBytes(minBytesRcvd);
+        }
+
+        // if this write is for a replication request or recovering
+        // a failed close for client, then confirm block. For other client-writes,
+        // the block is finalized in the PacketResponder.
+        if (isDatanode ||
+            stage == BlockConstructionStage.PIPELINE_CLOSE_RECOVERY) {
+
+
+          if(isDirectWrite){
+            datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+          }
+          LOG.info("Received " + block + " src: " + remoteAddress + " dest: "
+              + localAddress + " of size " + block.getNumBytes());
+
+        }
+
+        if(isClient) {
+          size = block.getNumBytes();
+        }
+      } catch (IOException ioe) {
+        LOG.info("opWriteBlock " + block + " received exception " + ioe);
+        incrDatanodeNetworkErrors();
+        throw ioe;
+      } finally {
+        // close all opened streams
+        IOUtils.closeStream(mirrorOut);
+        IOUtils.closeStream(mirrorIn);
+        IOUtils.closeStream(replyOut);
+        IOUtils.closeSocket(mirrorSock);
         if(isDirectWrite){
-        datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, storageUuid);
+          IOUtils.closeStream(blockReceiver);
+          if(shouldSegment){
+            fcfsManager.addPendingForward(block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
+          }
         }
-        LOG.info("Received " + block + " src: " + remoteAddress + " dest: "
-            + localAddress + " of size " + block.getNumBytes());
 
+        blockReceiver = null;
       }
 
-      if(isClient) {
-        size = block.getNumBytes();
+      //update metrics
+      datanode.metrics.addWriteBlockOp(elapsed());
+      datanode.metrics.incrWritesFromClient(peer.isLocal(), size);
+    }catch(IOException e){
+      LOG.warn("Exception whilst receiving block " + e.getMessage());
+      if(!isDirectWrite){
+        fcfsManager.removeAsyncWrite();
       }
-    } catch (IOException ioe) {
-      LOG.info("opWriteBlock " + block + " received exception " + ioe);
-      incrDatanodeNetworkErrors();
-      throw ioe;
-    } finally {
-      // close all opened streams
-      IOUtils.closeStream(mirrorOut);
-      IOUtils.closeStream(mirrorIn);
-      IOUtils.closeStream(replyOut);
-      IOUtils.closeSocket(mirrorSock);
-      if(isDirectWrite){
-        IOUtils.closeStream(blockReceiver);
-        if(shouldSegment){
-          fcfsManager.addPendingForward(block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
-        }
-      }
-      
-      blockReceiver = null;
+      throw e;
     }
-
-    //update metrics
-    datanode.metrics.addWriteBlockOp(elapsed());
-    datanode.metrics.incrWritesFromClient(peer.isLocal(), size);
   }
 
   @Override
@@ -1289,7 +1298,7 @@ class DataXceiver extends Receiver implements Runnable {
             dataXceiverServer.balanceThrottler, null, true);
 
         // notify name node
-       
+
         datanode.notifyNamenodeReceivedBlock(
             block, delHint, blockReceiver.getStorageUuid());
 

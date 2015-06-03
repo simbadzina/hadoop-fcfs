@@ -27,7 +27,7 @@ public class PendingAsyncReplicationBlocks {
   // It might take anywhere between 10 to 15 minutes before
   // a request is timed out.
   //
-  private long timeout = 10  * 60 * 1000;
+  private long timeout =  60  * 60 * 1000;
   private long defaultRecheckInterval = 5 * 60 * 1000;
 
   PendingAsyncReplicationBlocks() {

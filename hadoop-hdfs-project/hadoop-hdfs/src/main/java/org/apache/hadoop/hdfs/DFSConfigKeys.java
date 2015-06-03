@@ -68,6 +68,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY = "fcfs.prioritize-earlier-replicas";
   public static final boolean FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT = true;
   public static final String  FCFS_FLOW_NAME_DEFAULT = "";
+  public static final String  FCFS_MAX_UNACK_TIME_KEY = "fcfs.max.unack.time";
+  public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 5000;
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
@@ -689,7 +691,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   // Slow io warning log threshold settings for dfsclient and datanode.
   public static final String DFS_DATANODE_SLOW_IO_WARNING_THRESHOLD_KEY =
       "dfs.datanode.slow.io.warning.threshold.ms";
-  public static final long DFS_DATANODE_SLOW_IO_WARNING_THRESHOLD_DEFAULT = 300;
+  public static final long DFS_DATANODE_SLOW_IO_WARNING_THRESHOLD_DEFAULT = 5000;
 
   public static final String DFS_DATANODE_BLOCK_ID_LAYOUT_UPGRADE_THREADS_KEY =
       "dfs.datanode.block.id.layout.upgrade.threads";

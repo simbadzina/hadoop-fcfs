@@ -1499,10 +1499,10 @@ class DataStreamer extends Daemon {
         
 
         String flowName =  dfsClient.clientName;
-//        int findex = Math.max(flowName.indexOf("_m_"), flowName.indexOf("_r_"));
-//        if(findex>0){
-//          flowName = flowName.substring(0,findex);
-//        }
+        int findex = Math.max(flowName.indexOf("_m_"), flowName.indexOf("_r_"));
+        if(findex>0){
+          flowName = flowName.substring(0,findex);
+        }
         
         new Sender(out).FCFSwriteBlock(blockCopy, nodeStorageTypes[0], accessToken,
             dfsClient.clientName, nodes, nodeStorageTypes, null, bcs,

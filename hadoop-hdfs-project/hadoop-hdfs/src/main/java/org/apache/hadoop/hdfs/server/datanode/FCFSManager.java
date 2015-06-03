@@ -37,14 +37,16 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   private Queue<PendingForward> pendingForwards;
   private Queue<PendingWrite> pendingWrites;
+  private Queue<UnAckRequest> unAckRequests;
 
   private AtomicInteger numImmWrite;
   private AtomicInteger numAsyncWrite;
+  private AtomicInteger numBlocks;
   private int diskActivityThreshold;
   private int maxConcurrentReceives;
 
   public int bufferSize;
-  
+
   private long blockBufferSize;
 
 
@@ -62,6 +64,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   private long refreshInterval = DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT;
   private long statInterval = DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT;
+  private long maxUnAckTime ;
   private long lastStatLog = 0;
 
   //activity threshold and mention settings
@@ -74,6 +77,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private long highActivityMean = 0;
   private long lowActivityMean = 1;
 
+  public void incBlockCount(){
+    numBlocks.getAndIncrement();
+  }
   public void addAsyncWrite(){
     numAsyncWrite.getAndIncrement();
   }
@@ -81,15 +87,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void removeAsyncWrite(){
     numAsyncWrite.getAndDecrement();
   }
-  
+
   public void addImmWrite(){
     numImmWrite.getAndIncrement();
   }
-  
+
   public void removeImmWrite(){
     numImmWrite.getAndDecrement();
   }
-  
+
   public long getBlockBufferSize(){
     return blockBufferSize;
   }
@@ -100,29 +106,33 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     pendingForwards = new PriorityBlockingQueue<PendingForward>();
     pendingWrites = new PriorityBlockingQueue<PendingWrite>();
+    unAckRequests = new PriorityBlockingQueue<UnAckRequest>();
 
     maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
         DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
     bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
-activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
+    activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT);
     clusterSmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_CLUSTER_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_CLUSTER_SMOOTHING_EXP_DEFAULT);
- prioritizeEarlierReplicas = conf.getBoolean(DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY, 
+    prioritizeEarlierReplicas = conf.getBoolean(DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY, 
         DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT);
- refreshInterval = conf.getLong(DFSConfigKeys.FCFS_REFRESH_INTERVAL_KEY,
+    refreshInterval = conf.getLong(DFSConfigKeys.FCFS_REFRESH_INTERVAL_KEY,
         DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT);
     statInterval = conf.getLong(DFSConfigKeys.FCFS_STAT_INTERVAL_KEY,
         DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT);
     blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
-
+    maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
+        DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
     numImmWrite = new AtomicInteger(0);
     numAsyncWrite = new AtomicInteger(0);
-
+    numBlocks = new AtomicInteger(0);
 
     receives = new WFQScheduler(this);
-    
-    pool = Executors.newSingleThreadExecutor();
+
+    pool = Executors.newFixedThreadPool(maxConcurrentReceives*2);
+  
+    //pool = Executors.newSingleThreadExecutor();
     try{
       reader = new ProcReader();
     }catch(FileNotFoundException e){
@@ -174,7 +184,6 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       try{
         try{
           blockReceiver.delayedClose();
-          removeAsyncWrite();
         }catch(Exception e){
           LOG.warn("PendingWriteException : " + e.toString());
         }
@@ -182,12 +191,32 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
           this.manager.addPendingForward(this.toForward);
         }  
       }finally{
+        removeAsyncWrite();
         this.manager.resume();
       }
     }
 
   }
-  
+
+  public class UnAckRequest implements Comparable<UnAckRequest>{
+    private final long timeCreated;
+
+    public UnAckRequest(){
+      timeCreated = System.currentTimeMillis();
+    }
+
+
+    @Override
+    public int compareTo(UnAckRequest other) {
+      return  Long.valueOf(timeCreated).compareTo(other.timeCreated);
+    }
+
+    public long getAge(){
+      return System.currentTimeMillis() - timeCreated;
+    }
+
+  }
+
   class PendingForward implements Comparable<PendingForward>{
     private final ExtendedBlock block;
     private final DatanodeInfo[] targets;
@@ -209,7 +238,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       this.flowName = flowName;
       this.numImmediate = numImmediate;
       this.pipelineSize = pipelineSize;
-     
+
     } 
 
 
@@ -225,7 +254,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     public void resetAge(){
       this.timeCreated = System.currentTimeMillis();
     }
-    
+
     public void forward(){
       try{
         LOG.info("DZINEX : ppSize : " + pipelineSize);
@@ -234,7 +263,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
         LOG.warn(e.toString());
       }
     }
-    
+
     public boolean hasTargets(){
       if(targets == null){
         return false;
@@ -254,7 +283,6 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     if(receiver==null){
       LOG.warn("SILO : receiver is null");
     }
-    addAsyncWrite();
     pendingWrites.add(new PendingWrite(receiver,this,toForward));
   }
 
@@ -306,16 +334,22 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
 
   public boolean shouldWriteDirect(int position,int numImmediate,String flowName) {
-    return !isAsyncWrite(position,numImmediate,flowName);
+    if(!isAsyncWrite(position,numImmediate,flowName)){
+      return true;
+    }else{
+      unAckRequests.poll();
+      addAsyncWrite();
+      return false;
+    }
   }
 
   boolean shouldSegment(int position,int numImmediate,int pipelineSize,String flowName){
-    
+
     //always return false for last datanode in pipeline
     if(position+1 >= pipelineSize){
       return false;
     }
-    
+
     //segment is the next datanode should be written to asynchronously
     return isAsyncWrite(position+1,numImmediate,flowName);
   }
@@ -324,7 +358,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     if(!flowName.contains("attempt")){
       return false;
     }
-    
+
     //numImmediateWrites < 1 indicates no segmentation
     if(numImmediate < 1){
       return false;
@@ -338,32 +372,45 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
   }
 
+  void removePendingWrite(boolean sepThread){
+    if(!pendingWrites.isEmpty()){
+      pool.submit(pendingWrites.remove());
+    }
+  }
   void processQueue(){
 
-    
+
     //testing if disk activity is low
     if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
       if(!pendingWrites.isEmpty()){
-        pendingWrites.remove().run();
+        removePendingWrite(true);
       }
-      
-    }
-    
 
-  //testing if we don't have too many activity receives
-    if(numAsyncWrite.get() < maxConcurrentReceives){
+    }
+
+    while(!unAckRequests.isEmpty()){
+      if(unAckRequests.peek().getAge() > maxUnAckTime){
+        unAckRequests.remove();
+      }else{
+        break;
+      }
+    }
+
+    //testing if we don't have too many activity receives
+    for(int i = numAsyncWrite.get() + unAckRequests.size(); i < maxConcurrentReceives; i++){
       if(!receives.isEmpty()){
         PendingReceive toReceive = receives.getReceive();
         if(toReceive != null){
           try{
             LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
             this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+            unAckRequests.add(new UnAckRequest());
             LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
           }catch(IOException e){
             LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
           }
         }
-      }        
+      }
     }
 
   }
@@ -386,16 +433,16 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
     }
     lastStatLog = System.currentTimeMillis();
 
-    LOG.info(
-            "\nFCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold +
-            "\nFCFS_STAT_IMM_WRITE, " + numImmWrite+
-            "\nFCFS_STAT_PEN_FORWARD, " + pendingForwards.size()+
-            "\nFCFS_STAT_PEN_RECEIVE, " + receives.getSize()+
-            "\nFCFS_STAT_NUM_QUEUE, " + receives.getNumQueues()+
-            "\nFCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity+
-            "\nFCFS_STAT_RAW_ACTIVITY, " + rawActivity+
-            "\nFCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
-
+    LOG.info("FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold );
+    LOG.info("FCFS_STAT_IMM_WRITE, " + numImmWrite);
+    LOG.info("FCFS_STAT_PEN_FORWARD, " + pendingForwards.size());
+    LOG.info("FCFS_STAT_PEN_RECEIVE, " + receives.getSize());
+    LOG.info("FCFS_STAT_NUM_QUEUE, " + receives.getNumQueues());
+    LOG.info("FCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity);
+    LOG.info("FCFS_STAT_RAW_ACTIVITY, " + rawActivity);
+    LOG.info("FCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
+    LOG.info("FCFS_STAT_UNACK_REQUESTS, " + unAckRequests.size());
+    LOG.info("FCFS_STAT_BLOCK_COUNT, " + numBlocks.get());
 
   }
 
@@ -665,24 +712,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
   }
 
-  public class UnAckRequest implements Comparable<UnAckRequest>{
-    private final long timeCreated;
 
-    public UnAckRequest(){
-      timeCreated = System.currentTimeMillis();
-    }
-
-
-    @Override
-    public int compareTo(UnAckRequest other) {
-      return  Long.valueOf(timeCreated).compareTo(other.timeCreated);
-    }
-
-    public long getAge(){
-      return System.currentTimeMillis() - timeCreated;
-    }
-
-  }
 
 
 
@@ -734,7 +764,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
       return (receiveQueues.isEmpty());
     }
 
-    synchronized public void remove(long blockID, String flowName){
+    synchronized public boolean remove(long blockID, String flowName){
       LOG.info("AMDG : RFPR : REQUEST : " + blockID);
       LOG.info("AMDG : RFPR : CALLED : SIZE : " + receives.getSize());
 
@@ -742,7 +772,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
       PendingReceive current ;
 
-      if(flowName.contentEquals("default")){
+      if(flowName.contentEquals("")){
         for(Entry<String, LinkedList<PendingReceive>> entry : receiveQueues.entrySet()){
           //if queue for the priority level is not empty
           if(!entry.getValue().isEmpty()){
@@ -759,13 +789,20 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
                 }catch(IOException e){
                   LOG.warn("YOHWE : " + e.getMessage());
                 }
+                flowName = entry.getKey();
+                break;
+                
+              }
+            }
+            if(isFound){
+              if(entry.getValue().isEmpty()){
+                receiveQueues.remove(flowName);
               }
             }
           }
         }
-        if(receiveQueues.get(flowName).isEmpty()){
-          receiveQueues.remove(flowName);
-        }
+        
+        
       }else{
         LinkedList<PendingReceive> currentQueue = receiveQueues.get(flowName);
 
@@ -791,6 +828,7 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
           }
         }
       }
+      return isFound;
     }
 
     private long getVirtualTime(){
@@ -924,5 +962,5 @@ activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KE
 
 
 
- 
+
 }
