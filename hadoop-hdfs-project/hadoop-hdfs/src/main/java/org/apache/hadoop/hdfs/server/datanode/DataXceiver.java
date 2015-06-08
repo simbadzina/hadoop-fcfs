@@ -694,8 +694,11 @@ class DataXceiver extends Receiver implements Runnable {
 
       if(flowName.contains("attempt")){
         blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
+      }else if(flowName.isEmpty()){
+        blockTag = "BACK," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
       }
 
+      fcfsManager.incBlockCount();
       LOG.info("FCFS_INFO" + 
           "\nBLOCK         : " + block +
           "\nPIPELINESIZE  : " + pipelineSize +

@@ -87,6 +87,10 @@ class BlockReceiver implements Closeable {
     }
 
   }
+  
+  public int getCount(){
+    return bout.getCount();
+  }
 
   FCFSManager manager;
   BlockBufferedOutputStream bout;
@@ -309,12 +313,16 @@ class BlockReceiver implements Closeable {
             boutSize = manager.getBlockBufferSize();
           }
 
+          
           try{
             bout = new BlockBufferedOutputStream(fout, (int)boutSize);
           }catch(OutOfMemoryError e) {
             LOG.info("FCFS : OutOfMemoryException");
-            bout = new BlockBufferedOutputStream(fout, 1);
+            boutSize = 1;
+            bout = new BlockBufferedOutputStream(fout, (int)boutSize);
           }
+          LOG.info("FCFS_BOUTSIZE, " + boutSize);
+          
 
     } catch (ReplicaAlreadyExistsException bae) {
       throw bae;
@@ -401,6 +409,7 @@ class BlockReceiver implements Closeable {
         }
         flushTotalNanos += flushEndNanos - flushStartNanos;
         measuredFlushTime = true;
+        bout.close();
         fout.close();
         fout = null;
       }
@@ -993,8 +1002,8 @@ class BlockReceiver implements Closeable {
           responder.interrupt();
         }
 
-        IOUtils.closeStream(this);
         if(isDirectWrite){
+          IOUtils.closeStream(this);
           cleanupBlock();
         }
       }
@@ -1040,7 +1049,6 @@ class BlockReceiver implements Closeable {
    */
   private void adjustCrcFilePosition() throws IOException {
     if (fout != null) {
-      bout.flush();
       fout.flush();
     }
     if (checksumOut != null) {

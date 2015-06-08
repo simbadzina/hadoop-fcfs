@@ -130,9 +130,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     receives = new WFQScheduler(this);
 
-    pool = Executors.newFixedThreadPool(maxConcurrentReceives*2);
+    //pool = Executors.newFixedThreadPool(maxConcurrentReceives*2);
   
-    //pool = Executors.newSingleThreadExecutor();
+    pool = Executors.newSingleThreadExecutor();
     try{
       reader = new ProcReader();
     }catch(FileNotFoundException e){
@@ -183,6 +183,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     public void run() {
       try{
         try{
+          LOG.info("FCFS_BCOUNT, " + blockReceiver.getCount());
           blockReceiver.delayedClose();
         }catch(Exception e){
           LOG.warn("PendingWriteException : " + e.toString());
@@ -191,7 +192,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           this.manager.addPendingForward(this.toForward);
         }  
       }finally{
-        removeAsyncWrite();
+        this.manager.removeAsyncWrite();
         this.manager.resume();
       }
     }
@@ -372,7 +373,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   }
 
-  void removePendingWrite(boolean sepThread){
+  void removePendingWrite(){
     if(!pendingWrites.isEmpty()){
       pool.submit(pendingWrites.remove());
     }
@@ -383,7 +384,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     //testing if disk activity is low
     if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
       if(!pendingWrites.isEmpty()){
-        removePendingWrite(true);
+        removePendingWrite();
       }
 
     }
@@ -436,6 +437,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     LOG.info("FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold );
     LOG.info("FCFS_STAT_IMM_WRITE, " + numImmWrite);
     LOG.info("FCFS_STAT_PEN_FORWARD, " + pendingForwards.size());
+    LOG.info("FCFS_STAT_PEN_WRITE, " + pendingWrites.size());
     LOG.info("FCFS_STAT_PEN_RECEIVE, " + receives.getSize());
     LOG.info("FCFS_STAT_NUM_QUEUE, " + receives.getNumQueues());
     LOG.info("FCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity);
@@ -443,6 +445,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     LOG.info("FCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
     LOG.info("FCFS_STAT_UNACK_REQUESTS, " + unAckRequests.size());
     LOG.info("FCFS_STAT_BLOCK_COUNT, " + numBlocks.get());
+    LOG.info("FCFS_STAT_ACTIVITY_DIFFERENCE, " + (smoothedActivity-diskActivityThreshold));
 
   }
 
@@ -481,7 +484,6 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         synchronized(this){
           this.wait(refreshInterval);
         }
-        //Thread.sleep(pendingFlushSeparation);
       }catch(InterruptedException e){
         // ignore
       }

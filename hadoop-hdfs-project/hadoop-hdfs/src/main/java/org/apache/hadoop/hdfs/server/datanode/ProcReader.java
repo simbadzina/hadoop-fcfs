@@ -44,7 +44,7 @@ public class ProcReader {
 
   public int getWait() throws IOException{
     updateInfo();
-    return wait;
+    return (wait>0)?wait:0;
   }
   
   public void close()
