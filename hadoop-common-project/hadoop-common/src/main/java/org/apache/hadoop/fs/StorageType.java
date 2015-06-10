@@ -33,8 +33,8 @@ import org.apache.hadoop.util.StringUtils;
 @InterfaceAudience.Public
 @InterfaceStability.Unstable
 public enum StorageType {
-  DISK(false),
   SSD(false),
+  DISK(false),
   ARCHIVE(false),
   RAM_DISK(true);
 

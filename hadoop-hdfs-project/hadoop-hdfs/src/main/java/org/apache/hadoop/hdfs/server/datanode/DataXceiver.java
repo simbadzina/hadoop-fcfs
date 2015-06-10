@@ -693,9 +693,9 @@ class DataXceiver extends Receiver implements Runnable {
       fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
 
       if(flowName.contains("attempt")){
-        blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
+        blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress + "," + storageType.name();
       }else if(flowName.isEmpty()){
-        blockTag = "BACK," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress;
+        blockTag = "BACK," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress + "," + storageType.name();
       }
 
       fcfsManager.incBlockCount();
