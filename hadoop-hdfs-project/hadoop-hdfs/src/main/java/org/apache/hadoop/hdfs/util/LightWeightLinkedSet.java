@@ -17,11 +17,14 @@
  */
 package org.apache.hadoop.hdfs.util;
 
+import org.apache.hadoop.hdfs.protocol.Block;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
+
+import org.apache.hadoop.hdfs.server.namenode.NameNode;
 
 /**
  * A low memory linked hash set implementation, which uses an array for storing
@@ -146,6 +149,9 @@ public class LightWeightLinkedSet<T> extends LightWeightHashSet<T> {
     }
     if (head == found) {
       head = head.after;
+      NameNode.LOG.info("RMV_HEAD," + ((Block)key).getBlockId());
+    }else{
+      NameNode.LOG.info("RMV_BODY," + ((Block)key).getBlockId());
     }
     if (tail == found) {
       tail = tail.before;

@@ -68,7 +68,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private long lastStatLog = 0;
 
   //activity threshold and mention settings
-  private ProcReader reader;
+  private ProcReader procReader;
   private long smoothedActivity=0;
   private long rawActivity=0;
 
@@ -130,16 +130,16 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     receives = new WFQScheduler(this);
 
-    //pool = Executors.newFixedThreadPool(maxConcurrentReceives*2);
+    pool = Executors.newFixedThreadPool(maxConcurrentReceives);
   
-    pool = Executors.newSingleThreadExecutor();
+    //pool = Executors.newSingleThreadExecutor();
     try{
-      reader = new ProcReader();
+      procReader = new ProcReader();
+      
     }catch(FileNotFoundException e){
       LOG.warn("Cannot find diskstats file");
       throw new IOException("Cannot find diskstats file : /proc/diskstats");
-    }   
-
+    }  
 
     try{
       this.startRpcServer();
@@ -435,6 +435,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     lastStatLog = System.currentTimeMillis();
 
     LOG.info("FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold );
+    LOG.info("FCFS_STAT_HIGH_MEAN, " + highActivityMean );
+    LOG.info("FCFS_STAT_LOW_MEAN, " + lowActivityMean );
     LOG.info("FCFS_STAT_IMM_WRITE, " + numImmWrite);
     LOG.info("FCFS_STAT_PEN_FORWARD, " + pendingForwards.size());
     LOG.info("FCFS_STAT_PEN_WRITE, " + pendingWrites.size());
@@ -446,17 +448,22 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     LOG.info("FCFS_STAT_UNACK_REQUESTS, " + unAckRequests.size());
     LOG.info("FCFS_STAT_BLOCK_COUNT, " + numBlocks.get());
     LOG.info("FCFS_STAT_ACTIVITY_DIFFERENCE, " + (smoothedActivity-diskActivityThreshold));
-
+    LOG.info("FCFS_STAT_READ_THROUGHPUT, " + procReader.getReadThroughput());
+    LOG.info("FCFS_STAT_WRITE_THROUGHPUT, " + procReader.getWriteThroughput());
+    LOG.info("FCFS_STAT_READ_TOTAL, " + procReader.getReadTotal());
+    LOG.info("FCFS_STAT_WRITE_TOTAL, " + procReader.getWriteTotal());
+    
   }
 
   public void calculateActivity(){
 
     //Now using ProcReader for disk activity
     try{
-      rawActivity = reader.getWait();
+      procReader.updateInfo();  
     }catch(IOException e){
       LOG.warn("Error in ProcReader : " + e);
     }
+    rawActivity = procReader.getWait();
     smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + 
         (activitySmoothingExp*rawActivity));
 

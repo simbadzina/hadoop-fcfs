@@ -3421,6 +3421,7 @@ public class BlockManager {
       NumberReplicas repl = countNodes(block);
       int curExpectedReplicas = getReplication(block);
       if (isNeededReplication(block, curExpectedReplicas, repl.liveReplicas())) {
+        LOG.info("UPDATE,"+ block.getBlockId());
         neededReplications.update(block, repl.liveReplicas(), repl
             .decommissionedAndDecommissioning(), curExpectedReplicas,
             curReplicasDelta, expectedReplicasDelta);

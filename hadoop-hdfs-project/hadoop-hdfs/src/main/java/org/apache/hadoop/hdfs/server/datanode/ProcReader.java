@@ -12,11 +12,19 @@ public class ProcReader {
   private Stats prevStats;
   private Stats currStats;
   private RandomAccessFile rFile;
+  private DStats prevDStats;
+  private DStats currDStats;
+  private DStats initDStats;
 
-  public ProcReader() throws FileNotFoundException{
+  public ProcReader() throws FileNotFoundException,IOException{
     prevStats = null;
     currStats = null;
     rFile = new RandomAccessFile(DISK_FILE,"r");
+    prevDStats = null;
+    currDStats = null;
+    updateInfo();
+    updateInfo();
+    initDStats = currDStats;
   }
 
   public void updateInfo() throws IOException{
@@ -31,6 +39,9 @@ public class ProcReader {
         prevStats = currStats;        
         currStats = new Stats(Long.valueOf(numbers[4]).longValue(),Long.valueOf(numbers[8]).longValue(),
             Long.valueOf(numbers[1]).longValue(),Long.valueOf(numbers[5]).longValue());
+        
+        prevDStats = currDStats;        
+        currDStats = new DStats(Long.valueOf(numbers[3]).longValue(),Long.valueOf(numbers[7]).longValue());
         if(prevStats ==null){
           wait = 0;
         }else{
@@ -42,8 +53,7 @@ public class ProcReader {
     }
   }
 
-  public int getWait() throws IOException{
-    updateInfo();
+  public int getWait(){
     return (wait>0)?wait:0;
   }
   
@@ -55,6 +65,24 @@ public class ProcReader {
       System.out.println("Failed to close file in ProcReader");
     }
   }
+  
+  public int getReadThroughput(){
+    return DStats.getReadThroughput(currDStats, prevDStats);
+  }
+  
+  public int getWriteThroughput(){
+    return DStats.getWriteThroughput(currDStats, prevDStats);
+  }
+  
+  
+  public long getReadTotal(){
+    return DStats.getTotalRead(currDStats,initDStats);
+  }
+  
+  public long getWriteTotal(){
+    return DStats.getTotalWrite(currDStats, initDStats);
+  }
+  
 
 
   public static void main(String [] args){
@@ -96,5 +124,39 @@ class Stats{
 
 }
 
+class DStats{
+
+  public DStats( long secsRead, long secsWritten){
+    bytesRead = secsRead*512;
+    bytesWritten = secsWritten * 512;
+    time = System.currentTimeMillis();
+  }
+  public long bytesRead;
+  public long bytesWritten;
+  public long time;
+
+
+  public static int getReadThroughput(DStats prev, DStats curr){
+    long bytesDiff = curr.bytesRead  - prev.bytesRead;
+    long timeDiff = curr.time - prev.time;
+    return (int)((bytesDiff/timeDiff)*1000);
+  }
+  
+  public static int getWriteThroughput(DStats prev, DStats curr){
+    long bytesDiff = curr.bytesWritten  - prev.bytesWritten;
+    long timeDiff = curr.time - prev.time;
+    return (int)((bytesDiff/timeDiff)*1000);
+  }
+  
+  
+  public static long getTotalWrite(DStats prev, DStats curr){
+    return  curr.bytesWritten  - prev.bytesWritten;
+  }
+  
+  public static long getTotalRead(DStats prev, DStats curr){
+    return  curr.bytesRead  - prev.bytesRead;
+  }
+
+}
 
 

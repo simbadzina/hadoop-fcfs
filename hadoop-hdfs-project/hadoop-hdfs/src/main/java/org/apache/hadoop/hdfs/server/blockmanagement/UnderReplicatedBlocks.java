@@ -20,9 +20,11 @@ package org.apache.hadoop.hdfs.server.blockmanagement;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
 import org.apache.hadoop.hdfs.protocol.Block;
 import org.apache.hadoop.hdfs.util.LightWeightLinkedSet;
 import org.apache.hadoop.hdfs.server.namenode.NameNode;
+import org.mortbay.log.Log;
 
 /**
  * Keep prioritized queues of under replicated blocks.
@@ -244,6 +246,7 @@ class UnderReplicatedBlocks implements Iterable<Block> {
   boolean remove(Block block, int priLevel) {
     if(priLevel >= 0 && priLevel < LEVEL 
         && priorityQueues.get(priLevel).remove(block)) {
+      NameNode.LOG.info("RMM_BLOCK," + block.getBlockId());
       NameNode.blockStateChangeLog.debug(
         "BLOCK* NameSystem.UnderReplicationBlock.remove: Removing block {}" +
             " from priority queue {}", block, priLevel);
@@ -301,6 +304,7 @@ class UnderReplicatedBlocks implements Iterable<Block> {
       remove(block, oldPri);
     }
     if(priorityQueues.get(curPri).add(block)) {
+      NameNode.LOG.info(curPri + ",ADD_BLOCK," + block.getBlockId());
       NameNode.blockStateChangeLog.debug(
           "BLOCK* NameSystem.UnderReplicationBlock.update: {} has only {} " +
               "replicas and needs {} replicas so is added to " +
@@ -365,6 +369,7 @@ class UnderReplicatedBlocks implements Iterable<Block> {
       while (blockCount < blocksToProcess
           && neededReplicationsIterator.hasNext()) {
         Block block = neededReplicationsIterator.next();
+        NameNode.LOG.info("REM_BLOCK," + block.getBlockId());
         blocksToReplicate.get(priority).add(block);
         blockCount++;
       }
