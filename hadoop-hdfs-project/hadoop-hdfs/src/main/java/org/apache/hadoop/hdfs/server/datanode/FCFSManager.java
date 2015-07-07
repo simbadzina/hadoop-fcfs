@@ -11,12 +11,9 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.protocol.PipelineFeedbackProtocol;
 import org.apache.hadoop.fs.StorageType;
 
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.atomic.*;
 import java.io.*;
@@ -54,7 +51,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   static int rpcPort = DFSConfigKeys.FCFS_RPC_DEFAULT_PORT;
 
-  private WFQScheduler receives;
+  private PositionWFQ receives;
   private boolean prioritizeEarlierReplicas = DFSConfigKeys.FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT;
 
   private final ExecutorService pool;
@@ -76,6 +73,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private float clusterSmoothingExp;
   private long highActivityMean = 0;
   private long lowActivityMean = 1;
+  private float positionPriority;
 
   public void incBlockCount(){
     numBlocks.getAndIncrement();
@@ -124,11 +122,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
     maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
+    positionPriority = conf.getFloat(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT);
     numImmWrite = new AtomicInteger(0);
     numAsyncWrite = new AtomicInteger(0);
     numBlocks = new AtomicInteger(0);
 
-    receives = new WFQScheduler(this);
+    receives = new PositionWFQ();
 
     pool = Executors.newFixedThreadPool(maxConcurrentReceives);
   
@@ -147,6 +146,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.warn("Could not start FCFS Manager Rpc Server : " + e.getMessage());
     }
 
+  }
+  
+  public float getPositionPriority(int position){
+   return (float)Math.pow((double)positionPriority, (double)position);
   }
 
 
@@ -299,7 +302,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           Long.valueOf(block.getNumBytes()).toString(),
           Float.valueOf(replicationPriority).toString(),
           flowName,
-          Integer.valueOf(pipelinePosition+1).toString(),
+          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"0"),
           block.getBlockPoolId()
       });
       this.notifyDownStream(targets[0],message);
@@ -406,7 +409,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
             LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
             this.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
             unAckRequests.add(new UnAckRequest());
-            LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.replicationPriority);
+            LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
           }catch(IOException e){
             LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
           }
@@ -441,7 +444,6 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     LOG.info("FCFS_STAT_PEN_FORWARD, " + pendingForwards.size());
     LOG.info("FCFS_STAT_PEN_WRITE, " + pendingWrites.size());
     LOG.info("FCFS_STAT_PEN_RECEIVE, " + receives.getSize());
-    LOG.info("FCFS_STAT_NUM_QUEUE, " + receives.getNumQueues());
     LOG.info("FCFS_STAT_SMOOTHED_ACTIVITY, " + smoothedActivity);
     LOG.info("FCFS_STAT_RAW_ACTIVITY, " + rawActivity);
     LOG.info("FCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
@@ -508,7 +510,6 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.info("DZUDE : RPC server stopped");
     }
     pool.shutdown();
-    receives.fsRunning = false;
     assert datanode.shouldRun == false :
       "shoudRun should be set to false before killing";
   }
@@ -593,14 +594,21 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
 
-  public void removeFromPendingReceives(long blockID, String flowName){
-    receives.remove(blockID,flowName);
+  public void removeFromPendingReceives(long blockID, String flowName,int position){
+    PendingReceive removed = receives.remove(Long.valueOf(blockID).toString(),flowName,Integer.valueOf(position).toString());
+    if(removed != null){
+      try {
+        this.notifyUpStream(removed.sourceIP, "remove," + removed.blockID);
+      } catch (IOException e) {
+        LOG.warn("YOHWE Exception: " + e.getMessage());
+      }
+    }
   }
 
   @Override
   public String informDownStream(String message) {
     LOG.info("DZUDE downstream node got : " + message);
-    receives.addReceive(new PendingReceive(message));
+    receives.addReceive(new PendingReceive(message,positionPriority));
     return message;
   }
 
@@ -687,46 +695,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   }
 
-  public class PendingReceive implements Comparable<PendingReceive>{
-    private String blockID;
-    private String sourceIP;
-    public long blockSize;
-    public float replicationPriority;
-    public String flowName;
-    private final long timeCreated;
-    public long startTime;
-    public long finishTime;
-    public int pipelinePosition;
-
-    public PendingReceive(String message){
-      String[] parts = PFPUtils.split(message);
-      sourceIP = parts[0];
-      blockID = parts[1];
-      blockSize = Long.valueOf(parts[2]).longValue();
-      replicationPriority = Float.valueOf(parts[3]).floatValue();
-      flowName = parts[4];
-      pipelinePosition = Integer.valueOf(parts[5]);
-      timeCreated = System.currentTimeMillis();
-    }
 
 
-    @Override
-    public int compareTo(PendingReceive other) {
-      return  Long.valueOf(timeCreated).compareTo(other.timeCreated);
-    }
-
-    public long getAge(){
-      return System.currentTimeMillis() - timeCreated;
-    }
-
-  }
+}
 
 
-
-
-
-
-
+/*
 
   public class WFQScheduler {
     Map<String, LinkedList<PendingReceive>> receiveQueues;
@@ -867,10 +841,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     }
 
     synchronized public void addReceive(PendingReceive rec){
-      LinkedList<PendingReceive> currentQueue = receiveQueues.get(rec.flowName);
+      LinkedList<PendingReceive> currentQueue = receiveQueues.get(rec.flow);
       if(currentQueue == null){
         currentQueue = new LinkedList<PendingReceive>();
-        receiveQueues.put(rec.flowName, currentQueue);
+        receiveQueues.put(rec.flow, currentQueue);
       }
 
       //set start time
@@ -882,7 +856,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       //set finish time
       //no longer scaling the 
 
-      float queuingPriority = rec.replicationPriority;
+      float queuingPriority = rec.flowPriority;
       rec.finishTime = rec.startTime + (long)(rec.blockSize/queuingPriority);
 
       //finally insert rec into queue
@@ -911,13 +885,14 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         return null;
       }
 
-      if(!prioritizeEarlierReplicas){
+      //if(!prioritizeEarlierReplicas){
         numReceives--;
         PendingReceive result = receiveQueues.get(bestFlow).removeFirst();
         if(receiveQueues.get(bestFlow).isEmpty()){
           receiveQueues.remove(bestFlow);
         }
         return result;
+        
       }else{
         numReceives--;
         PendingReceive result =getEarliestReplica(receiveQueues.get(bestFlow));
@@ -939,6 +914,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       currentQueue.add(temp);
     }
 
+    
     synchronized public PendingReceive  getEarliestReplica(LinkedList<PendingReceive> currentQueue){
       int minIndex = 0;
       int minPosition = currentQueue.get(0).pipelinePosition;
@@ -967,9 +943,11 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
 
     }
+    
   }
 
 
 
 
 }
+*/

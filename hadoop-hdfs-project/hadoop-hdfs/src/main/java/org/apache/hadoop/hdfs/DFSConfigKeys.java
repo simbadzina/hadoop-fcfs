@@ -67,6 +67,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_RPC_ADDRESS_DEFAULT = "0.0.0.0:" + FCFS_RPC_DEFAULT_PORT;
   public static final String  FCFS_PRIORITIZE_EARLIER_REPLICAS_KEY = "fcfs.prioritize-earlier-replicas";
   public static final boolean FCFS_PRIORITIZE_EARLIER_REPLICAS_DEFAULT = true;
+  public static final String  FCFS_POSITION_PRIORITY_KEY = "fcfs.position.priority";
+  public static final float   FCFS_POSITION_PRIORITY_DEFAULT = 0.15f;
   public static final String  FCFS_FLOW_NAME_DEFAULT = "";
   public static final String  FCFS_MAX_UNACK_TIME_KEY = "fcfs.max.unack.time";
   public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 5000;

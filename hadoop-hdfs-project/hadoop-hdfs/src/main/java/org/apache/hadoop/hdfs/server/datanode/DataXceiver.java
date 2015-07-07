@@ -690,7 +690,7 @@ class DataXceiver extends Receiver implements Runnable {
     boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName);
     boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
     try{
-      fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName);
+      fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName,position);
 
       if(flowName.contains("attempt")){
         blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress + "," + storageType.name();
