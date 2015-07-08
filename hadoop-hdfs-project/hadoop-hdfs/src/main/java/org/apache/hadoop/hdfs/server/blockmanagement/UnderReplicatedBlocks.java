@@ -369,7 +369,6 @@ class UnderReplicatedBlocks implements Iterable<Block> {
       while (blockCount < blocksToProcess
           && neededReplicationsIterator.hasNext()) {
         Block block = neededReplicationsIterator.next();
-        NameNode.LOG.info("REM_BLOCK," + block.getBlockId());
         blocksToReplicate.get(priority).add(block);
         blockCount++;
       }

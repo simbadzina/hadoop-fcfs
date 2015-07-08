@@ -149,9 +149,7 @@ public class LightWeightLinkedSet<T> extends LightWeightHashSet<T> {
     }
     if (head == found) {
       head = head.after;
-      NameNode.LOG.info("RMV_HEAD," + ((Block)key).getBlockId());
     }else{
-      NameNode.LOG.info("RMV_BODY," + ((Block)key).getBlockId());
     }
     if (tail == found) {
       tail = tail.before;

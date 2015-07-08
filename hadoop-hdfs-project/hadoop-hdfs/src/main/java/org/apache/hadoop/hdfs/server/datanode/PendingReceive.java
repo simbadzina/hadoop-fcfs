@@ -13,7 +13,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
   public String position;
   public float positionPriority;
 
-  public PendingReceive(String message,float pPriority){
+  public PendingReceive(String message,float pPriorityRatio){
     String[] parts = PFPUtils.split(message);
     sourceIP = parts[0];
     blockID = parts[1];
@@ -22,7 +22,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
     flow = parts[4];
     position = parts[5];
     timeCreated = System.currentTimeMillis();
-    positionPriority = pPriority;
+    positionPriority = (float)Math.pow((double)pPriorityRatio, (double)Float.valueOf(position).floatValue());
   }
 
 
@@ -34,6 +34,6 @@ public class PendingReceive implements Comparable<PendingReceive>{
   public long getAge(){
     return System.currentTimeMillis() - timeCreated;
   }
-  
+
 }
 
