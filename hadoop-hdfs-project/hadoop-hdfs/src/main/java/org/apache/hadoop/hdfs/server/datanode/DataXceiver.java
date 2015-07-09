@@ -687,10 +687,10 @@ class DataXceiver extends Receiver implements Runnable {
 
 
     boolean shouldSegment = fcfsManager.shouldSegment(position, numImmediate, pipelineSize,flowName);
-    boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName);
+    boolean isDirectWrite = fcfsManager.shouldWriteDirect(position,numImmediate,flowName,storageType);
     boolean isAsyncWrite = fcfsManager.isAsyncWrite(position, numImmediate,flowName);
     try{
-      fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName,position);
+      fcfsManager.removeFromPendingReceives(block.getBlockId(), flowName,position,storageType);
 
       if(flowName.contains("attempt")){
         blockTag = flowName + "," + block.getBlockId() + "," + position + "," +  replicationPriority + "," + this.remoteAddress + "," + this.localAddress + "," + storageType.name();
@@ -909,7 +909,7 @@ class DataXceiver extends Receiver implements Runnable {
             blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
                 mirrorAddr, null, targets, false);
             if(!isDirectWrite){
-              fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize);
+              fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize, storageType);
             }
 
           }
@@ -980,7 +980,7 @@ class DataXceiver extends Receiver implements Runnable {
     }catch(IOException e){
       LOG.warn("Exception whilst receiving block " + e.getMessage());
       if(!isDirectWrite){
-        fcfsManager.removeAsyncWrite();
+        fcfsManager.removeAsyncWrite(storageType);
       }
       throw e;
     }

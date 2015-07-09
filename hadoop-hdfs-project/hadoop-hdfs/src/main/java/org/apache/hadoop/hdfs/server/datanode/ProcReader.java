@@ -16,12 +16,13 @@ public class ProcReader {
   private DStats currDStats;
   private DStats initDStats;
 
-  public ProcReader() throws FileNotFoundException,IOException{
+  public ProcReader(String storageDevice) throws FileNotFoundException,IOException{
     prevStats = null;
     currStats = null;
     rFile = new RandomAccessFile(DISK_FILE,"r");
     prevDStats = null;
     currDStats = null;
+    disk = storageDevice;
     updateInfo();
     updateInfo();
     initDStats = currDStats;
@@ -87,7 +88,7 @@ public class ProcReader {
 
   public static void main(String [] args){
     try{
-    ProcReader rd = new ProcReader();
+    ProcReader rd = new ProcReader("sdc");
       while(true){
         System.out.println(rd.getWait());
         Thread.sleep(1000);
