@@ -68,20 +68,20 @@ public class ProcReader {
   }
   
   public int getReadThroughput(){
-    return DStats.getReadThroughput(currDStats, prevDStats);
+    return DStats.getReadThroughput(prevDStats,currDStats);
   }
   
   public int getWriteThroughput(){
-    return DStats.getWriteThroughput(currDStats, prevDStats);
+    return DStats.getWriteThroughput(prevDStats,currDStats);
   }
   
   
   public long getReadTotal(){
-    return DStats.getTotalRead(currDStats,initDStats);
+    return DStats.getTotalRead(initDStats,currDStats);
   }
   
   public long getWriteTotal(){
-    return DStats.getTotalWrite(currDStats, initDStats);
+    return DStats.getTotalWrite(initDStats,currDStats);
   }
   
 

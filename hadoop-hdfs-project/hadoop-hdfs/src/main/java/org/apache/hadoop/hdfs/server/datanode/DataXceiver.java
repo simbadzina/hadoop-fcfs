@@ -897,7 +897,7 @@ class DataXceiver extends Receiver implements Runnable {
           String mirrorAddr = (mirrorSock == null) ? null : mirrorNode;
           try{ 
             if(!isAsyncWrite){
-              fcfsManager.addImmWrite();
+              fcfsManager.addImmWrite(storageType);
             }
             /** 
              * Send info about asynchronous blocks
@@ -915,7 +915,7 @@ class DataXceiver extends Receiver implements Runnable {
           }
           finally{
             if(!isAsyncWrite){
-              fcfsManager.removeImmWrite();
+              fcfsManager.removeImmWrite(storageType);
             }
 
           }

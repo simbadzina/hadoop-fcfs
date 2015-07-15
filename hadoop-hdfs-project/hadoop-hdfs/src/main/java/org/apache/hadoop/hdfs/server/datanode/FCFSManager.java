@@ -35,7 +35,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private Queue<PendingForward> pendingForwards;
   
 
-  private AtomicInteger numImmWrite;
+
   
   private AtomicInteger numBlocks;
   
@@ -72,11 +72,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     private long smoothedActivity=0;
     private long rawActivity=0;
     private final StorageType sType;
+    private AtomicInteger foregroundRobin;
+    private AtomicInteger numImmWrite;
 
     StoManager(FCFSManager _manager, String storageDevice, StorageType _sType) throws IOException{
       manager = _manager;
       procReader = new ProcReader(storageDevice);
       numAsyncWrite = new AtomicInteger(0);
+      foregroundRobin = new AtomicInteger(0);
+      numImmWrite = new AtomicInteger(0);
       pendingWrites = new PriorityBlockingQueue<PendingWrite>();
       unAckRequests = new PriorityBlockingQueue<UnAckRequest>();
       receives = new PositionWFQ();
@@ -196,8 +200,28 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.info(sType.name() + ",FCFS_STAT_NUM_ASYNC_WRITE, " + numAsyncWrite.get());
       LOG.info(sType.name() + ",FCFS_STAT_UNACK_REQUESTS, " + unAckRequests.size());
       LOG.info(sType.name() + ",FCFS_STAT_ACTIVITY_DIFFERENCE, " + (smoothedActivity-diskActivityThreshold));
-
+      LOG.info(sType.name() + ",FCFS_STAT_READ_THROUGHPUT, " + procReader.getReadThroughput());
+      LOG.info(sType.name() + ",FCFS_STAT_WRITE_THROUGHPUT, " + procReader.getWriteThroughput());
+      LOG.info(sType.name() + ",FCFS_STAT_READ_TOTAL, " + procReader.getReadTotal());
+      LOG.info(sType.name() + ",FCFS_STAT_WRITE_TOTAL, " + procReader.getWriteTotal());
+      LOG.info(sType.name() + ",FCFS_STAT_IMM_WRITE, " + numImmWrite);
+      LOG.info(sType.name() + ",FCFS_STAT_NUM_POS_QUEUE, " + receives.queues.size());
       
+    }
+    
+    public void addImmWrite(){
+      numImmWrite.getAndIncrement();
+      foregroundRobin.getAndIncrement();
+      if(foregroundRobin.get()>=19){
+        foregroundRobin.set(0);
+        if(!pendingWrites.isEmpty()){
+          removePendingWrite();
+        }
+      }
+    }
+    
+    public void removeImmWrite(){
+      numImmWrite.getAndDecrement();
     }
     
   }
@@ -236,12 +260,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     getStoMan(sType).numAsyncWrite.getAndDecrement();
   }
 
-  public void addImmWrite(){
-    numImmWrite.getAndIncrement();
+  public void addImmWrite(StorageType sType) throws IOException{
+    getStoMan(sType).addImmWrite();
   }
 
-  public void removeImmWrite(){
-    numImmWrite.getAndDecrement();
+  public void removeImmWrite(StorageType sType) throws IOException{
+    getStoMan(sType).removeImmWrite();
   }
 
   public long getBlockBufferSize(){
@@ -271,7 +295,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
     positionPriority = conf.getFloat(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT);
-    numImmWrite = new AtomicInteger(0);
+  
     
     numBlocks = new AtomicInteger(0);
 
@@ -479,8 +503,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           Long.valueOf(toForward.block.getNumBytes()).toString(),
           Float.valueOf(toForward.replicationPriority).toString(),
           toForward.flowName,
-          Integer.valueOf(pipelinePosition+1).toString(),
-          toForward.block.getBlockPoolId()
+          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"0"),
+          toForward.targetStorageTypes[0].name()
       });
       this.notifyDownStream(toForward.targets[0],message);
     }catch(IOException e){
@@ -547,9 +571,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       return;
     }
     lastStatLog = System.currentTimeMillis();
-
-
-    LOG.info("GLO" + "FCFS_STAT_IMM_WRITE, " + numImmWrite);
+ 
     LOG.info("GLO" + "FCFS_STAT_PEN_FORWARD, " + pendingForwards.size());
     LOG.info("GLO" + "FCFS_STAT_BLOCK_COUNT, " + numBlocks.get());
     
