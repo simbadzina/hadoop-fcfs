@@ -54,14 +54,16 @@ Map<String, LeafWFQ> queues;
     }
 
     PendingReceive result = bestQueue.getReceive();
+    long startTime = Math.max(bestQueue.getTime(), this.getVirtualTime());
+    long finishTime = startTime + (long)(result.blockSize/result.flowPriority);
     
     if(bestQueue.isEmpty()){
        queues.remove(bestFlow);
     }else{
-      long startTime = Math.max(bestQueue.getTime(), this.getVirtualTime());
-      long finishTime = startTime + (long)(result.blockSize/result.flowPriority);
       bestQueue.setTime(finishTime);
     }   
+    
+    result.setTimeStamp(finishTime);
     return result;
     
   }

@@ -53,14 +53,15 @@ public class PositionWFQ extends WeightedFairQueue {
     }
 
     PendingReceive result = bestQueue.getReceive();
-    
+    long startTime = Math.max(bestQueue.getTime(), this.getVirtualTime());
+    long finishTime = startTime + (long)(result.blockSize/result.positionPriority);
     if(bestQueue.isEmpty()){
        queues.remove(bestFlow);
     }else{
-      long startTime = Math.max(bestQueue.getTime(), this.getVirtualTime());
-      long finishTime = startTime + (long)(result.blockSize/result.positionPriority);
+      
       bestQueue.setTime(finishTime);
     }   
+    result.setTimeStamp(finishTime);
     return result;
     
   }

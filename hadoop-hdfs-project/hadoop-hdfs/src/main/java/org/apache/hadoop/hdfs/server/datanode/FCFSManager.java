@@ -135,6 +135,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       for(int i = numAsyncWrite.get() + unAckRequests.size(); i < maxConcurrentReceives; i++){
         if(!receives.isEmpty()){
           PendingReceive toReceive = receives.getReceive();
+          LOG.info(toReceive);
           if(toReceive != null){
             try{
               LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
@@ -247,7 +248,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private float activitySmoothingExp;
   private float clusterSmoothingExp;
   
-  private float positionPriority;
+  private float[] positionPriority;
 
   public void incBlockCount(){
     numBlocks.getAndIncrement();
@@ -294,8 +295,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
     maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
-    positionPriority = conf.getFloat(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT);
-  
+    positionPriority = PFPUtils.colonsplit(conf.getStrings(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT)[0]);
     
     numBlocks = new AtomicInteger(0);
 
@@ -691,6 +691,14 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     }
   }
 
+  public float getPriority(String position){
+    int pos = Integer.valueOf(position).intValue();
+    if(pos<=positionPriority.length){
+      return positionPriority[pos-1];
+    }else{
+     return positionPriority[positionPriority.length-1];
+    }
+  }
 
   public void removeFromPendingReceives(long blockID, String flowName,int position,StorageType sType) throws IOException{
     PendingReceive removed = getStoMan(sType).receives.remove(Long.valueOf(blockID).toString(),flowName,Integer.valueOf(position).toString());
@@ -708,7 +716,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     LOG.info("DZUDE downstream node got : " + message);
     String[] parts = PFPUtils.split(message);
     StorageType sType = StorageType.parseStorageType(parts[6]);
-    getStoMan(sType).receives.addReceive(new PendingReceive(message,positionPriority));
+    
+    getStoMan(sType).receives.addReceive(new PendingReceive(message,getPriority(parts[5])));
     return message;
   }
 
@@ -791,6 +800,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     public static String[] split(String message){
       return message.split(",");
+    }
+    
+    public static float[] colonsplit(String message){
+      String[] prios = message.split(":");
+      float[] results = new float[prios.length];
+      for(int i = 0; i < prios.length; i++){
+        results[i] = Float.valueOf(prios[i]).floatValue();
+      }
+      return results;
     }
 
   }
