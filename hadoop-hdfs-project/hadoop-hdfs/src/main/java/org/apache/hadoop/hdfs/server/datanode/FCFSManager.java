@@ -482,7 +482,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           Long.valueOf(block.getNumBytes()).toString(),
           Float.valueOf(replicationPriority).toString(),
           flowName,
-          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"0"),
+          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"1"),
           targetStorageTypes[0].name()
       });
       this.notifyDownStream(targets[0],message);
@@ -503,7 +503,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           Long.valueOf(toForward.block.getNumBytes()).toString(),
           Float.valueOf(toForward.replicationPriority).toString(),
           toForward.flowName,
-          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"0"),
+          (this.prioritizeEarlierReplicas?Integer.valueOf(pipelinePosition+1).toString():"1"),
           toForward.targetStorageTypes[0].name()
       });
       this.notifyDownStream(toForward.targets[0],message);

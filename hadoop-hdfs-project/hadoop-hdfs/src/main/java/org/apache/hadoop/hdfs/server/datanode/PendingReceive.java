@@ -14,6 +14,12 @@ public class PendingReceive implements Comparable<PendingReceive>{
   public float positionPriority;
   private long timestamp;
   
+  public long pStart;
+  public long pEnd;
+  
+  public long jStart;
+  public long jEnd;
+  
   
 
   public PendingReceive(String message,float pPriority){
