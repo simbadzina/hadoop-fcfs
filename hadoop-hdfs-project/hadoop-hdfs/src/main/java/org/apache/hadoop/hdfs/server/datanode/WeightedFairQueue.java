@@ -1,20 +1,11 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
+import java.util.LinkedList;
+
+
 public abstract class WeightedFairQueue {
-    long time;
+    LinkedList<BTime> times ;
     WeightedFairQueue parent = null;
-    
-    long getTime(){
-      return time;
-    }
-    
-    void resetTime(){
-      time = 0;
-    }
-    
-    void setTime(long newTime){
-        time = newTime; 
-    }
     
     abstract void addReceive(PendingReceive receive);
     abstract PendingReceive getReceive();
@@ -23,5 +14,7 @@ public abstract class WeightedFairQueue {
     
     abstract PendingReceive remove(String blockID, String flow, String position);
     abstract int getSize();
+    abstract long getStartTime();
+    abstract long getFinishTime();
 }
 

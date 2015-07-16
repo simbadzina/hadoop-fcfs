@@ -1,4 +1,5 @@
 package org.apache.hadoop.hdfs.server.datanode;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -8,7 +9,7 @@ public class PositionWFQ extends WeightedFairQueue {
   
   
   PositionWFQ(){
-    time = 0;
+    times  = new LinkedList<BTime>();
     queues = new ConcurrentHashMap<String, JobWFQ>();
   }
   
@@ -20,12 +21,14 @@ public class PositionWFQ extends WeightedFairQueue {
       queues.put(receive.position, curr);
     }
       
+    long startTime = this.getVirtualTime();
+    if(!curr.isEmpty()){
+      startTime = Math.max(startTime, curr.getFinishTime());
+   }
     
-    if(curr.isEmpty()){
-      long startTime = this.getVirtualTime();
-      curr.setTime(startTime);
-    }
-    curr.addReceive(receive);
+   receive.pStart = startTime;
+   receive.pEnd = startTime + (long)(receive.blockSize/receive.positionPriority);
+   curr.addReceive(receive);
 
   }
 
@@ -38,7 +41,7 @@ public class PositionWFQ extends WeightedFairQueue {
 
     for(Entry<String, JobWFQ> entry : queues.entrySet()){
       if(!entry.getValue().isEmpty()){
-        temp = entry.getValue().getTime();
+        temp = entry.getValue().getStartTime();
         if(temp < bestTime){
           bestTime = temp;
           bestFlow = entry.getKey();
@@ -53,16 +56,11 @@ public class PositionWFQ extends WeightedFairQueue {
     }
 
     PendingReceive result = bestQueue.getReceive();
-    long blockFinishTime =bestQueue.getTime() + (long)(result.blockSize/result.positionPriority);
-    long startTime = Math.max(blockFinishTime, this.getVirtualTime());
-    result.setTimeStamp(bestQueue.getTime());
+    result.setTimeStamp(bestTime);
     
     if(bestQueue.isEmpty()){
        queues.remove(bestFlow);
-    }else{
-      bestQueue.setTime(startTime);
-    }   
-    
+    }
     return result;
     
   }
@@ -85,7 +83,7 @@ public class PositionWFQ extends WeightedFairQueue {
     for(Entry<String, JobWFQ> entry : queues.entrySet()){
       //if queue for the priority level is not empty
       if(!entry.getValue().isEmpty()){
-          temp = entry.getValue().getTime();
+          temp = entry.getValue().getStartTime();
           if(temp > max){
             max = temp;
           }
@@ -119,6 +117,16 @@ public class PositionWFQ extends WeightedFairQueue {
       size += entry.getValue().getSize();
     }
     return size;
+  }
+
+  @Override
+  long getStartTime() {
+    return 0;
+  }
+
+  @Override
+  long getFinishTime() {
+    return 0;
   }
 
 }

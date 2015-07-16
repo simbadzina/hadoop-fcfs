@@ -6,7 +6,7 @@ public class LeafWFQ extends WeightedFairQueue {
   LinkedList<PendingReceive> receives = new LinkedList<PendingReceive>();
 
   LeafWFQ(){
-    time = 0;
+   
   }
   
   void addReceive(PendingReceive receive) {
@@ -38,12 +38,28 @@ public class LeafWFQ extends WeightedFairQueue {
 
   @Override
   long getVirtualTime() {
-    return time;
+    return 0;
   }
 
   @Override
   int getSize() {
     return receives.size();
+  }
+
+  @Override
+  long getStartTime() {
+    if(!receives.isEmpty()){
+      return receives.getFirst().jStart;
+    }
+    return 0;
+  }
+
+  @Override
+  long getFinishTime() {
+    if(!receives.isEmpty()){
+      return receives.getLast().jEnd;
+    }
+    return 0;
   }
   
 }

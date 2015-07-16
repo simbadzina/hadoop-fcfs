@@ -1,20 +1,21 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class JobWFQ extends WeightedFairQueue {
 Map<String, LeafWFQ> queues;
-  
+  LinkedList<BTime> times = new LinkedList<BTime>();
   
   JobWFQ(){
-    time = 0;
     queues = new ConcurrentHashMap<String, LeafWFQ>();
   }
   
   @Override
   void addReceive(PendingReceive receive) {
+    times.addLast(new BTime(receive.pStart,receive.pEnd));
     LeafWFQ curr = queues.get(receive.flow);
     if(curr == null){
       curr = new LeafWFQ();
@@ -22,12 +23,14 @@ Map<String, LeafWFQ> queues;
     }
       
     
-    if(curr.isEmpty()){
-      long startTime = this.getVirtualTime();
-      curr.setTime(startTime);
+    long startTime = this.getVirtualTime();
+    if(!curr.isEmpty()){
+      startTime = Math.max(startTime, curr.getFinishTime());
     }
-    curr.addReceive(receive);
-
+    
+   receive.jStart = startTime;
+   receive.jEnd = startTime + (long)(receive.blockSize/receive.flowPriority);
+   curr.addReceive(receive);
   }
 
   @Override
@@ -39,7 +42,7 @@ Map<String, LeafWFQ> queues;
 
     for(Entry<String, LeafWFQ> entry : queues.entrySet()){
       if(!entry.getValue().isEmpty()){
-        temp = entry.getValue().getTime();
+        temp = entry.getValue().getStartTime();
         if(temp < bestTime){
           bestTime = temp;
           bestFlow = entry.getKey();
@@ -54,18 +57,14 @@ Map<String, LeafWFQ> queues;
     }
 
     PendingReceive result = bestQueue.getReceive();
-    long blockFinishTime =bestQueue.getTime() + (long)(result.blockSize/result.positionPriority);
-    long startTime = Math.max(blockFinishTime, this.getVirtualTime());
-    result.setTimeStamp(bestQueue.getTime());
+    result.setTimeStamp(bestTime);
     
     if(bestQueue.isEmpty()){
        queues.remove(bestFlow);
-    }else{
-      bestQueue.setTime(startTime);
-    }   
-    
+    }
+    times.removeFirst();
     return result;
-    
+   
   }
 
   @Override
@@ -86,7 +85,7 @@ Map<String, LeafWFQ> queues;
     for(Entry<String, LeafWFQ> entry : queues.entrySet()){
       //if queue for the priority level is not empty
       if(!entry.getValue().isEmpty()){
-          temp = entry.getValue().getTime();
+          temp = entry.getValue().getStartTime();
           if(temp > max){
             max = temp;
           }
@@ -110,6 +109,7 @@ Map<String, LeafWFQ> queues;
         }  
       }
     }  
+    times.removeFirst();
     return removed;
   }
 
@@ -120,5 +120,20 @@ Map<String, LeafWFQ> queues;
       size += entry.getValue().getSize();
     }
     return size;
+  }
+  
+  
+  public long getStartTime(){
+    if(!times.isEmpty()){
+      return times.getFirst().start;
+    }
+    return 0;
+  }
+  
+  public long getFinishTime(){
+    if(!times.isEmpty()){
+      return times.getLast().end;
+    }
+    return 0;
   }
 }
