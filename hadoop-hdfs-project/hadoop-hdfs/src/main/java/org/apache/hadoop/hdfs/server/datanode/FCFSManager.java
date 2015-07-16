@@ -135,7 +135,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       for(int i = numAsyncWrite.get() + unAckRequests.size(); i < maxConcurrentReceives; i++){
         if(!receives.isEmpty()){
           PendingReceive toReceive = receives.getReceive();
-          LOG.info(toReceive);
+          LOG.info(toReceive + "," + System.currentTimeMillis());
           if(toReceive != null){
             try{
               LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);

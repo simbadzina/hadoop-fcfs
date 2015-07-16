@@ -22,7 +22,7 @@ public class PositionWFQ extends WeightedFairQueue {
       
     
     if(curr.isEmpty()){
-      long finishTime = this.getVirtualTime() + (long)(receive.blockSize/receive.positionPriority);
+      long startTime = this.getVirtualTime() + (long)(receive.blockSize/receive.positionPriority);
       curr.setTime(finishTime);
     }
     curr.addReceive(receive);
