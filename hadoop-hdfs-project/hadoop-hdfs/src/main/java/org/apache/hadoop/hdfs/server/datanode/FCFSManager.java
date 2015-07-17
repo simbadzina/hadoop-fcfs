@@ -582,12 +582,6 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void run() {
     while(datanode.shouldRun){
       try{
-     
-      }catch(Exception e){
-        LOG.warn("YOHWE FCFS run : " + e.toString());
-        e.printStackTrace();
-      }
-      try{
         synchronized(this){
           this.wait(refreshInterval);
         }

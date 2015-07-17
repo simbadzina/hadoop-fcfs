@@ -62,7 +62,7 @@ Map<String, LeafWFQ> queues;
     if(bestQueue.isEmpty()){
        queues.remove(bestFlow);
     }
-    times.removeFirst();
+    times.pollFirst();
     return result;
    
   }
@@ -108,8 +108,8 @@ Map<String, LeafWFQ> queues;
           queues.remove(flow);
         }  
       }
-    }  
-    times.removeFirst();
+    }
+    times.pollFirst();
     return removed;
   }
 
