@@ -11,6 +11,7 @@ import org.apache.hadoop.hdfs.protocol.ExtendedBlock;
 import org.apache.hadoop.hdfs.server.protocol.PipelineFeedbackProtocol;
 import org.apache.hadoop.fs.StorageType;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -27,8 +28,10 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.security.PrivilegedExceptionAction;
+
 import com.sun.jna.Library;
 import com.sun.jna.Native;
+
 import java.nio.*;
 
 
@@ -65,6 +68,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   }
   
+  /*
+   * Memory mapped files stuff
+   */
+  private Map<Long,TimedBuffer> buffers;
   static
   {
           try
@@ -85,6 +92,30 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           }
   }
 
+  private static native int mlock(ByteBuffer buf,int size);
+  private static native int munlock(ByteBuffer buf,int size);
+  
+  class TimedBuffer{
+    public ByteBuffer buf;
+    public long time;
+    
+    TimedBuffer(ByteBuffer _buf){
+      buf = _buf;
+      time = System.currentTimeMillis();
+    }
+  }
+  
+  public void lockAndAdd(long blockID, ByteBuffer buf){
+    //mlock(buf, buf.capacity());
+    //buffers.put(Long.valueOf(blockID), new TimedBuffer(buf)); 
+  }
+  
+  public void unlockAndRemove(long blockID){
+    ByteBuffer buf = buffers.get(Long.valueOf(blockID)).buf;
+    if(buf != null){
+      munlock(buf,buf.capacity());
+    }
+  }
   
   class StoManager implements Runnable {
     private final FCFSManager manager;
@@ -305,7 +336,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     this.conf = conf;
 
     pendingForwards = new PriorityBlockingQueue<PendingForward>();
-   
+    buffers= new ConcurrentHashMap<Long,TimedBuffer>();
     maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
         DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
     bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
@@ -319,7 +350,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT);
     statInterval = conf.getLong(DFSConfigKeys.FCFS_STAT_INTERVAL_KEY,
         DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT);
-    blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
+    blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 2*1024*1024;
     maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
     positionPriority = PFPUtils.colonsplit(conf.getStrings(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT)[0]);
@@ -835,10 +866,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   
-  public void lockAndAdd(long blockID, ByteBuffer buf){
-    //TODO implement locking and adding
-    
-  }
+  
 
 
 }
