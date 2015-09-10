@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 package org.apache.hadoop.hdfs.server.datanode;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileChannel.MapMode;
 
 import static org.apache.hadoop.hdfs.server.datanode.DataNode.DN_CLIENTTRACE_FORMAT;
 
@@ -31,6 +33,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.zip.Checksum;
@@ -69,24 +72,7 @@ class BlockReceiver implements Closeable {
   public static final Log LOG = DataNode.LOG;
   static final Log ClientTraceLog = DataNode.ClientTraceLog;
 
-  class BlockBufferedOutputStream extends BufferedOutputStream{
-    public BlockBufferedOutputStream(OutputStream out){
-      super(out);
-    }
 
-    public BlockBufferedOutputStream(OutputStream out, int size){
-      super(out,size);
-    }
-
-    public int getCount(){
-      return count;
-    }
-
-    public int getLength(){
-      return buf.length;
-    }
-
-  }
   
   public int getCount(){
     return bout.getCount();
@@ -96,7 +82,7 @@ class BlockReceiver implements Closeable {
   BlockBufferedOutputStream bout;
   private final String blockTag;
   private boolean isClosed = false;
-  private long boutSize;
+  ByteBuffer outBuf;
   private boolean isDirectWrite;
   private boolean reachedPacketResponderClose = false;
 
@@ -293,8 +279,14 @@ class BlockReceiver implements Closeable {
 
 
           this.fout= streams.getDataOut();
+      
           if (fout instanceof FileOutputStream) {
             this.outFd = ((FileOutputStream)fout).getFD();
+            
+            FileChannel outChannel = ((FileOutputStream)fout).getChannel();
+            ByteBuffer outBuf = outChannel.map(MapMode.READ_WRITE, 0L, manager.getBlockBufferSize());
+            outBuf.order(ByteOrder.nativeOrder());
+            this.manager.lockAndAdd(block.getBlockId(), outBuf);
           } else {
             LOG.warn("Could not get file descriptor for outputstream of class " +
                 fout.getClass());
@@ -307,21 +299,10 @@ class BlockReceiver implements Closeable {
             BlockMetadataHeader.writeHeader(checksumOut, diskChecksum);
           } 
 
-          if(isDirectWrite == true){
-            boutSize = 1;
-          }else{
-            boutSize = manager.getBlockBufferSize();
-          }
-
+      
           
-          try{
-            bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-          }catch(OutOfMemoryError e) {
-            LOG.info("FCFS : OutOfMemoryException");
-            boutSize = 1;
-            bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-          }
-          LOG.info("FCFS_BOUTSIZE, " + boutSize);
+          bout = new BlockBufferedOutputStream(outBuf);
+          
           
 
     } catch (ReplicaAlreadyExistsException bae) {

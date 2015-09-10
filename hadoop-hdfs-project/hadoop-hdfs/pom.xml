@@ -36,9 +36,21 @@ http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <is.hadoop.component>true</is.hadoop.component>
     <require.fuse>false</require.fuse>
     <require.libwebhdfs>false</require.libwebhdfs>
+    <jna.version>4.0.0</jna.version>
   </properties>
-
+  
+  
   <dependencies>
+      <dependency>
+          <groupId>net.java.dev.jna</groupId>
+          <artifactId>jna</artifactId>
+          <version>${jna.version}</version>
+      </dependency>
+      <dependency>
+          <groupId>net.java.dev.jna</groupId>
+          <artifactId>jna-platform</artifactId>
+          <version>${jna.version}</version>
+      </dependency>
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-annotations</artifactId>

@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.*;
 import java.io.*;
 import java.util.*;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
@@ -26,6 +27,11 @@ import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.security.PrivilegedExceptionAction;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import java.nio.*;
+
+
 
 public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private final DataNode datanode;
@@ -58,6 +64,27 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     
 
   }
+  
+  static
+  {
+          try
+          {
+                  Native.register("c");
+          }
+          catch (NoClassDefFoundError e)
+          {
+                  System.out.println("JNA not found. Native methods will be disabled.");
+          }
+          catch (UnsatisfiedLinkError e)
+          {
+                  System.out.println("Unable to link C library. Native methods will be disabled.");
+          }
+          catch (NoSuchMethodError e)
+          {
+                  System.out.println("Obsolete version of JNA present; unable to register C library. Upgrade to JNA 3.2.7 or later");
+          }
+  }
+
   
   class StoManager implements Runnable {
     private final FCFSManager manager;
@@ -807,6 +834,11 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   }
 
+  
+  public void lockAndAdd(long blockID, ByteBuffer buf){
+    //TODO implement locking and adding
+    
+  }
 
 
 }
