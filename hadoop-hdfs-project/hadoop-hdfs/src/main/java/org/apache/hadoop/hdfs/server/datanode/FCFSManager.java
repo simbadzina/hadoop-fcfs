@@ -106,8 +106,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
   
   public void lockAndAdd(long blockID, ByteBuffer buf){
-    //mlock(buf, buf.capacity());
-    //buffers.put(Long.valueOf(blockID), new TimedBuffer(buf)); 
+    mlock(buf, buf.capacity());
+    buffers.put(Long.valueOf(blockID), new TimedBuffer(buf));
+    LOG.info("BBUF," + buffers.size());
   }
   
   public void unlockAndRemove(long blockID){
@@ -339,7 +340,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     buffers= new ConcurrentHashMap<Long,TimedBuffer>();
     maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
         DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
-    bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
+    bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT);
     activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT);
     clusterSmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_CLUSTER_SMOOTHING_EXP_KEY,
@@ -350,7 +351,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         DFSConfigKeys.FCFS_REFRESH_INTERVAL_DEFAULT);
     statInterval = conf.getLong(DFSConfigKeys.FCFS_STAT_INTERVAL_KEY,
         DFSConfigKeys.FCFS_STAT_INTERVAL_DEFAULT);
-    blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 2*1024*1024;
+    blockBufferSize  = conf.getLong(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) ;
     maxUnAckTime  = conf.getLong(DFSConfigKeys.FCFS_MAX_UNACK_TIME_KEY,
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
     positionPriority = PFPUtils.colonsplit(conf.getStrings(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT)[0]);

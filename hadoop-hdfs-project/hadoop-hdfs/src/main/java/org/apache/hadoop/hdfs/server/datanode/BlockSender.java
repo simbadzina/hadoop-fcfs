@@ -174,7 +174,7 @@ class BlockSender implements java.io.Closeable {
    */
   private static final long LONG_READ_THRESHOLD_BYTES = 256 * 1024;
   
-
+  FCFSManager manager;
   /**
    * Constructor
    * 
@@ -234,6 +234,8 @@ class BlockSender implements java.io.Closeable {
         Preconditions.checkArgument(sendChecksum,
             "If verifying checksum, currently must also send it.");
       }
+      
+      manager = (FCFSManager)datanode.fcfsManager.getRunnable();
       
       final Replica replica;
       final long replicaVisibleLength;
