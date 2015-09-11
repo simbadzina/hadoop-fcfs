@@ -299,7 +299,9 @@ class BlockReceiver implements Closeable {
           
           try{
             bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-            manager.lockAndAdd(block.getBlockId(), bout.getBuf());
+            if(boutSize > 1){
+              manager.lockAndAdd(block.getBlockId(), bout.getBuf());
+            }
           }catch(OutOfMemoryError e) {
             LOG.info("FCFS : OutOfMemoryException");
             boutSize = 1;

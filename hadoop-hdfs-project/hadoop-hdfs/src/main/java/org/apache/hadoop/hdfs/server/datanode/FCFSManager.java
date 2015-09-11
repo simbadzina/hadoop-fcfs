@@ -29,10 +29,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import java.security.PrivilegedExceptionAction;
 
-import com.sun.jna.Library;
 import com.sun.jna.Native;
-
-import java.nio.*;
 
 
 
@@ -108,14 +105,22 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void lockAndAdd(long blockID, ByteBuffer buf){
     mlock(buf, buf.capacity());
     buffers.put(Long.valueOf(blockID), new TimedBuffer(buf));
-    LOG.info("BBUF," + buffers.size());
+    LOG.info("BBUF," + blockID + ","+ buffers.size());
   }
   
   public void unlockAndRemove(long blockID){
-    ByteBuffer buf = buffers.get(Long.valueOf(blockID)).buf;
-    if(buf != null){
-      munlock(buf,buf.capacity());
+    TimedBuffer tbuf = buffers.remove(Long.valueOf(blockID));
+    if(tbuf != null){
+      munlock(tbuf.buf,tbuf.buf.capacity());
     }
+  }
+  
+  public BlockBufferedInputStream getBlockBufferedInputStream(long blockID){
+    TimedBuffer tbuf = buffers.get(Long.valueOf(blockID));
+    if(tbuf != null){
+      return new BlockBufferedInputStream(tbuf.buf,this,blockID);
+    }
+    return null;
   }
   
   class StoManager implements Runnable {
@@ -602,8 +607,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       return false;
     }
 
-    //numImmediateWrites < 1 indicates no segmentation
-    if(numImmediate < 1){
+    //numImmediateWrites < 0 indicates no segmentation
+    if(numImmediate < 0){
       return false;
     }
 
