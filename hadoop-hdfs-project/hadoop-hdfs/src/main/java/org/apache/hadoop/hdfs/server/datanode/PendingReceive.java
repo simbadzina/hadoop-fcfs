@@ -9,7 +9,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
   public long blockSize;
   public float flowPriority;
   public String flow;
-  private final long timeCreated;
+  private long timeCreated;
   public String position;
   public float positionPriority;
   private long timestamp;
@@ -38,6 +38,10 @@ public class PendingReceive implements Comparable<PendingReceive>{
 
   public void setTimeStamp(long time){
     timestamp = time;
+  }
+  
+  public void resetAge(){
+    timeCreated = System.currentTimeMillis();
   }
   
   @Override

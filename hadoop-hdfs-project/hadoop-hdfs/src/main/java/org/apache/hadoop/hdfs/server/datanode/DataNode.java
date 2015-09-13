@@ -2065,7 +2065,7 @@ public class DataNode extends ReconfigurableBase
     boolean lengthTooShort = false;
 
     try {
-      data.checkBlock(block, block.getNumBytes(), ReplicaState.FINALIZED);
+      data.checkBlock(block, 0, ReplicaState.FINALIZED);
     } catch (ReplicaNotFoundException e) {
       replicaNotExist = true;
     } catch (UnexpectedReplicaStateException e) {
@@ -2096,7 +2096,7 @@ public class DataNode extends ReconfigurableBase
     if (lengthTooShort) {
       // Check if NN recorded length matches on-disk length 
       // Shorter on-disk len indicates corruption so report NN the corrupt block
-      reportBadBlock(bpos, block, "Can't replicate block " + block
+      reportBadBlock(bpos, block, "Can't replicate2 block " + block
           + " because on-disk length " + data.getLength(block) 
           + " is shorter than NameNode recorded length " + block.getNumBytes());
       return;

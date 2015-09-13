@@ -773,7 +773,7 @@ class DataXceiver extends Receiver implements Runnable {
               peer.getLocalAddressString(),
               stage, latestGenerationStamp, minBytesRcvd, maxBytesRcvd,
               clientname, srcDataNode, datanode, requestedChecksum,
-              cachingStrategy, allowLazyPersist, pinning,isDirectWrite,blockTag);
+              cachingStrategy, allowLazyPersist, pinning,isDirectWrite,blockTag,Integer.valueOf(position).toString());
 
           storageUuid = blockReceiver.getStorageUuid();
         } else {
@@ -909,6 +909,7 @@ class DataXceiver extends Receiver implements Runnable {
             blockReceiver.receiveBlock(mirrorOut, mirrorIn, replyOut,
                 mirrorAddr, null, targets, false);
             if(!isDirectWrite){
+              blockReceiver.miniClose();
               fcfsManager.addPendingWrite(blockReceiver,block, forwardTargets, forwardTargetStorageTypes, replicationPriority, flowName, numImmediate, pipelineSize, storageType);
             }
 

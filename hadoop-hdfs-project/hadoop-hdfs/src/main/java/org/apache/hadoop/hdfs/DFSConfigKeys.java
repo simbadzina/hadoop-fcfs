@@ -71,7 +71,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_POSITION_PRIORITY_DEFAULT = "2:1:1";
   public static final String  FCFS_FLOW_NAME_DEFAULT = "";
   public static final String  FCFS_MAX_UNACK_TIME_KEY = "fcfs.max.unack.time";
-  public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 5000;
+  public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 10000;
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;
@@ -424,7 +424,7 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  DFS_NAMENODE_DECOMMISSION_MAX_CONCURRENT_TRACKED_NODES = "dfs.namenode.decommission.max.concurrent.tracked.nodes";
   public static final int     DFS_NAMENODE_DECOMMISSION_MAX_CONCURRENT_TRACKED_NODES_DEFAULT = 100;
   public static final String  DFS_NAMENODE_HANDLER_COUNT_KEY = "dfs.namenode.handler.count";
-  public static final int     DFS_NAMENODE_HANDLER_COUNT_DEFAULT = 10;
+  public static final int     DFS_NAMENODE_HANDLER_COUNT_DEFAULT = 64;
   public static final String  DFS_NAMENODE_SERVICE_HANDLER_COUNT_KEY = "dfs.namenode.service.handler.count";
   public static final int     DFS_NAMENODE_SERVICE_HANDLER_COUNT_DEFAULT = 10;
   public static final String  DFS_HTTP_POLICY_KEY = "dfs.http.policy";

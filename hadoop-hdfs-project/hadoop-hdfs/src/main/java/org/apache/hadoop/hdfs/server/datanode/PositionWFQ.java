@@ -4,6 +4,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.mortbay.log.Log;
+
 public class PositionWFQ extends WeightedFairQueue {
   Map<String, JobWFQ> queues;
   
@@ -32,14 +34,21 @@ public class PositionWFQ extends WeightedFairQueue {
 
   }
 
-  @Override
-  synchronized PendingReceive getReceive() {
+
+  synchronized PendingReceive getReceive(Map<String,Integer> buffersCount, int maxReceives) {
     String bestFlow = "";
     long bestTime = Long.MAX_VALUE;
     long temp;
     JobWFQ bestQueue;
-
+    Integer count;
     for(Entry<String, JobWFQ> entry : queues.entrySet()){
+      count = buffersCount.get(entry.getKey());
+      if(count != null){
+        if(count >= maxReceives){
+          Log.info("DIAG, position:" + entry.getKey() + " count= " + count);
+          //continue;
+        }
+      }
       if(!entry.getValue().isEmpty()){
         temp = entry.getValue().getStartTime();
         if(temp < bestTime){
@@ -63,6 +72,11 @@ public class PositionWFQ extends WeightedFairQueue {
     }
     return result;
     
+  }
+  
+  @Override
+  synchronized PendingReceive getReceive() {
+    return null;
   }
 
   @Override

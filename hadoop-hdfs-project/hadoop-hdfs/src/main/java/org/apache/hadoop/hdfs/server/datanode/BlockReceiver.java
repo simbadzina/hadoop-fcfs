@@ -74,6 +74,11 @@ class BlockReceiver implements Closeable {
   public int getCount(){
     return bout.getCount();
   }
+  
+  
+  public long getBlockId(){
+    return block.getBlockId();
+  }
 
   FCFSManager manager;
   BlockBufferedOutputStream bout;
@@ -148,6 +153,7 @@ class BlockReceiver implements Closeable {
   private DataOutputStream replyOut = null;
 
   private boolean pinning;
+  public String position;
 
 
   //original construction signature
@@ -162,7 +168,7 @@ class BlockReceiver implements Closeable {
       final boolean allowLazyPersist,
       final boolean pinning)throws IOException {
     this(block,storageType,in,inAddr,myAddr,stage,newGs,minBytesRcvd,maxBytesRcvd,clientname,srcDataNode,
-        datanode,requestedChecksum,cachingStrategy,allowLazyPersist,pinning,true,"");
+        datanode,requestedChecksum,cachingStrategy,allowLazyPersist,pinning,true,"","0");
   }
 
 
@@ -175,7 +181,7 @@ class BlockReceiver implements Closeable {
       final DataNode datanode, DataChecksum requestedChecksum,
       CachingStrategy cachingStrategy,
       final boolean allowLazyPersist,
-      final boolean pinning,boolean isDirectWrite,String blockTag) throws IOException {
+      final boolean pinning,boolean isDirectWrite,String blockTag,String pos) throws IOException {
     try{
       this.blockTag = blockTag;
       this.block = block;
@@ -210,6 +216,7 @@ class BlockReceiver implements Closeable {
             + "\n  pinning=" + pinning
             );
       }
+      this.position = pos;
 
       //
       // Open local disk out
@@ -300,7 +307,7 @@ class BlockReceiver implements Closeable {
           try{
             bout = new BlockBufferedOutputStream(fout, (int)boutSize);
             if(boutSize > 1){
-              manager.lockAndAdd(block.getBlockId(), bout.getBuf());
+              manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
             }
           }catch(OutOfMemoryError e) {
             LOG.info("FCFS : OutOfMemoryException");
@@ -419,11 +426,11 @@ class BlockReceiver implements Closeable {
     }
   }
 
-
-  void delayedClose() throws IOException{
+  void miniClose() throws IOException{
+    bout.rewind();
     if(reachedPacketResponderClose==true){
       try (ReplicaHandler handler = BlockReceiver.this.claimReplicaHandler()) {
-        BlockReceiver.this.close();
+        
         block.setNumBytes(replicaInfo.getNumBytes());
         datanode.data.finalizeBlock(block);
       }
@@ -432,11 +439,15 @@ class BlockReceiver implements Closeable {
         datanode.data.setPinning(block);
       }
 
-      datanode.closeBlock(
-          block, DataNode.EMPTY_DEL_HINT, replicaInfo.getStorageUuid());
+      datanode.closeBlock(block, DataNode.EMPTY_DEL_HINT, replicaInfo.getStorageUuid());
     }
+  }
 
+  void delayedClose() throws IOException{
+    
 
+    BlockReceiver.this.close();
+    
     if (isDatanode || isTransfer) {
       // Hold a volume reference to finalize block.
       try (ReplicaHandler handler = claimReplicaHandler()) {

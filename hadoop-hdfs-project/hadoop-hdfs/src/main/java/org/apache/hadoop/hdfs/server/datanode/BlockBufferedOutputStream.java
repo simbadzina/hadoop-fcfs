@@ -9,6 +9,8 @@ import java.nio.ByteOrder;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 
+import org.mortbay.log.Log;
+
 /**
  * The class implements a buffered output stream. By setting up such
  * an output stream, an application can write bytes to the underlying
@@ -33,6 +35,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
   public BlockBufferedOutputStream(OutputStream out){
     this(out, 8192);
   }
+  private int count = 0;
   /**
    * Creates a new buffered output stream to write data to the
    * specified underlying output stream with the specified buffer
@@ -55,8 +58,8 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
   
   /** Flush the internal buffer */
   private void flushBuffer() throws IOException {
-      if (buf.position() > 0) {
-        buf.limit(buf.position());
+    if (count > 0) {
+        buf.limit(count);
         buf.rewind();
         channel.write(buf);
         buf.rewind();
@@ -67,7 +70,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
   
   
   public int getCount(){
-    return buf.position();
+    return count;
   }
 
   public int getLength(){
@@ -86,6 +89,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
       flushBuffer();
     }
     buf.put((byte)b);
+    count++;
     
   }
   
@@ -119,6 +123,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
          flushBuffer();
      }
      buf.put(b, off, len);
+     count += len;
  }
  
  /**
@@ -129,12 +134,17 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
   * @see        java.io.FilterOutputStream#out
   */
   public synchronized void flush() throws IOException {
+      Log.info("BFLUSH,"+count);
      flushBuffer();
      out.flush();
   }
   
   public ByteBuffer getBuf(){
     return buf;
+  }
+  
+  public void rewind(){
+    buf.rewind();
   }
   
 
