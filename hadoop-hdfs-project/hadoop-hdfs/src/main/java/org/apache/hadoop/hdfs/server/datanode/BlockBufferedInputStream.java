@@ -4,7 +4,11 @@ package org.apache.hadoop.hdfs.server.datanode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
+
+import org.mortbay.log.Log;
 
 
 
@@ -15,7 +19,9 @@ public class BlockBufferedInputStream extends InputStream {
    * it may be replaced by another array of
    * a different size.
    */
-  ByteBuffer buf;
+  MappedByteBuffer buf;
+  BlockBufferedOutputStream bout;
+  FileChannel channel;
   FCFSManager manager;
   long blockID;
 
@@ -30,20 +36,20 @@ public class BlockBufferedInputStream extends InputStream {
   protected int markpos = -1;
   protected int marklimit;
 
-  public BlockBufferedInputStream(ByteBuffer _buf, FCFSManager _man, long _bId) {
-    buf = _buf;
+  public BlockBufferedInputStream(FCFSManager _man, long _bId,BlockBufferedOutputStream bout) {
+   
     manager = _man;
     blockID = _bId;
+    buf = bout.buf;
+    count = bout.getCount();
+    channel = bout.channel;
+    buf.position(0);
   }
 
 
   @Override
   public synchronized int read() throws IOException {
-    if (buf.remaining() > 0) {
       return buf.get();
-    }
-
-    return -1;
   }
 
   public synchronized int read(byte b[], int off, int len)
@@ -75,6 +81,9 @@ public class BlockBufferedInputStream extends InputStream {
   }
   
   public void close() throws IOException {
+     channel.truncate(count);
+     Log.info("truncating", + blockID + "," + count);
+     channel.close();
      manager.unlockAndRemove(blockID); 
   }
 

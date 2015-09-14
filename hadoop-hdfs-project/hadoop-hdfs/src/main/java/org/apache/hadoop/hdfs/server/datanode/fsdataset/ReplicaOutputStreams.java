@@ -18,9 +18,12 @@
 package org.apache.hadoop.hdfs.server.datanode.fsdataset;
 
 import java.io.Closeable;
+
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+
 
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DataChecksum;
@@ -32,6 +35,7 @@ public class ReplicaOutputStreams implements Closeable {
   private final OutputStream dataOut;
   private final OutputStream checksumOut;
   private final DataChecksum checksum;
+  public final RandomAccessFile dataOutFile;
   private final boolean isTransientStorage;
 
   /**
@@ -39,11 +43,18 @@ public class ReplicaOutputStreams implements Closeable {
    * and a checksum.
    */
   public ReplicaOutputStreams(OutputStream dataOut, OutputStream checksumOut,
-      DataChecksum checksum, boolean isTransientStorage) {
+      DataChecksum checksum, boolean isTransientStorage, RandomAccessFile _dataOutFile) {
     this.dataOut = dataOut;
     this.checksumOut = checksumOut;
     this.checksum = checksum;
     this.isTransientStorage = isTransientStorage;
+    this.dataOutFile = _dataOutFile;
+  }
+  
+  public ReplicaOutputStreams(OutputStream dataOut, OutputStream checksumOut,
+      DataChecksum checksum, boolean isTransientStorage) {
+    this( dataOut,  checksumOut,
+         checksum,  isTransientStorage, null);
   }
 
   /** @return the data output stream. */

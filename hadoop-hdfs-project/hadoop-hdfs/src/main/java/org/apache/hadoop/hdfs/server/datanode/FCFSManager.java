@@ -25,6 +25,8 @@ import java.io.*;
 import java.util.*;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
@@ -103,12 +105,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private static native int munlock(ByteBuffer buf,int size);
 
   class TimedBuffer{
-    public ByteBuffer buf;
     public long time;
     public String position;
+    BlockBufferedOutputStream bout;
 
-    TimedBuffer(ByteBuffer _buf,String pos){
-      buf = _buf;
+    TimedBuffer(BlockBufferedOutputStream _bout, String pos){
+      bout = _bout;
       time = System.currentTimeMillis();
       position = pos;
     }
@@ -141,9 +143,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     lock.unlock();
   }
 
-  public void lockAndAdd(long blockID, ByteBuffer buf,String position){
-    mlock(buf, buf.capacity());
-    buffers.put(Long.valueOf(blockID), new TimedBuffer(buf,position));
+  public void lockAndAdd(long blockID,BlockBufferedOutputStream bout,String position){
+    mlock(bout.buf, bout.getLength());
+    buffers.put(Long.valueOf(blockID), new TimedBuffer(bout,position));
     lock.lock();
     boolean wasThere = unAckBuffers.remove(blockID);
     Integer count = buffersCount.get(position);
@@ -179,11 +181,11 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         }
       }
       lock.unlock();
-      munlock(tbuf.buf,tbuf.buf.capacity());
+      munlock(tbuf.bout.buf,tbuf.bout.buf.capacity());
       try {
-        Field cleanerField = tbuf.buf.getClass().getDeclaredField("cleaner");
+        Field cleanerField = tbuf.bout.buf.getClass().getDeclaredField("cleaner");
         cleanerField.setAccessible(true);
-        Cleaner cleaner = (Cleaner) cleanerField.get(tbuf.buf);
+        Cleaner cleaner = (Cleaner) cleanerField.get(tbuf.bout.buf);
         cleaner.clean();
       } catch(Exception ex) { 
         LOG.warn("Error cleaning directly allocated buffer");
@@ -204,7 +206,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public BlockBufferedInputStream getBlockBufferedInputStream(long blockID){
     TimedBuffer tbuf = buffers.get(Long.valueOf(blockID));
     if(tbuf != null){
-      return new BlockBufferedInputStream(tbuf.buf,this,blockID);
+      return new BlockBufferedInputStream(this,blockID,tbuf.bout);
     }
     return null;
   }

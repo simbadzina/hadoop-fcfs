@@ -30,6 +30,7 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.RandomAccessFile;
 import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -74,7 +75,10 @@ class BlockReceiver implements Closeable {
  
   
   public int getCount(){
-    return bout.getCount();
+    if(bout instanceof BlockBufferedOutputStream){
+      return ((BlockBufferedOutputStream)bout).getCount();
+    }
+    return 0;
   }
   
   
@@ -298,38 +302,19 @@ class BlockReceiver implements Closeable {
           if (isCreate) {
             BlockMetadataHeader.writeHeader(checksumOut, diskChecksum);
           } 
-
-          if(isDirectWrite == true || (!(fout instanceof FileOutputStream))){
+          RandomAccessFile outFile = streams.dataOutFile;
+          if(isDirectWrite == true && (outFile!=null)){
             boutSize = 1;
             bout = new BufferedOutputStream(fout);
           }else{
             boutSize = manager.getBlockBufferSize();
-            FileChannel channel = ((FileOutputStream)fout).getChannel();
-            bout = new BlockBufferedOutputStream(fout,channel,(int)boutSize);
-           
-                manager.fcfsGateKeeper(position,block.getBlockId());
-                manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
-            
-          
+            manager.fcfsGateKeeper(position,block.getBlockId());
+            bout = new BlockBufferedOutputStream(fout,(int)boutSize,outFile);
+            manager.lockAndAdd(block.getBlockId(), ((BlockBufferedOutputStream)bout), position);
+
           }
 
-          
-          try{
-            if(fout instanceof FileOutputStream){
-              bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-              if(boutSize > 1){
-                manager.fcfsGateKeeper(position,block.getBlockId());
-                manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
-              }
-            }else{
-              bout = new BufferedOutputStream(fout);
-            }
-            
-          }catch(OutOfMemoryError e) {
-            LOG.info("FCFS : OutOfMemoryException");
-            boutSize = 1;
-            bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-          }
+         
           LOG.info("FCFS_BOUTSIZE, " + boutSize);
           
 
@@ -443,7 +428,6 @@ class BlockReceiver implements Closeable {
   }
 
   void miniClose() throws IOException{
-    bout.rewind();
     if(reachedPacketResponderClose==true){
       try (ReplicaHandler handler = BlockReceiver.this.claimReplicaHandler()) {
         

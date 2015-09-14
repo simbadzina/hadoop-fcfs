@@ -263,15 +263,15 @@ public class ReplicaInPipeline extends ReplicaInfo
     FileOutputStream blockOut = null;
     FileOutputStream crcOut = null;
     try {
-      blockOut = new FileOutputStream(
-          new RandomAccessFile( blockFile, "rw" ).getFD() );
+      RandomAccessFile outFile = new RandomAccessFile(blockFile,"rw");
+      blockOut = new FileOutputStream(outFile.getFD() );
       crcOut = new FileOutputStream(metaRAF.getFD() );
       if (!isCreate) {
         blockOut.getChannel().position(blockDiskSize);
         crcOut.getChannel().position(crcDiskSize);
       }
       return new ReplicaOutputStreams(blockOut, crcOut, checksum,
-          getVolume().isTransientStorage());
+          getVolume().isTransientStorage(),outFile);
     } catch (IOException e) {
       IOUtils.closeStream(blockOut);
       IOUtils.closeStream(metaRAF);
