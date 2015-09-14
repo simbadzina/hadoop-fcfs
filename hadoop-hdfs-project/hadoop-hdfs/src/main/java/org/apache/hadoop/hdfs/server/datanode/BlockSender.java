@@ -394,7 +394,7 @@ class BlockSender implements java.io.Closeable {
         blockIn = datanode.data.getBlockInputStream(block, offset); // seek to offset
       }else{
         LOG.info("BINBUF," + block.getBlockId());
-        blockIn.skip(offset);
+        ((BlockBufferedInputStream)blockIn).seekToOffset(offset);
       }
 
       if (blockIn instanceof FileInputStream) {

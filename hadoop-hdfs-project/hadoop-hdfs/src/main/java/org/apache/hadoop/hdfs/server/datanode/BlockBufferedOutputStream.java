@@ -7,6 +7,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.channels.WritableByteChannel;
 
 import org.mortbay.log.Log;
@@ -25,7 +26,8 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
    * The internal buffer where data is stored.
    */  
   ByteBuffer buf;
-  WritableByteChannel channel;
+  FileChannel channel;
+  boolean hasBeenFlushed;
   /**
    * Creates a new buffered output stream to write data to the
    * specified underlying output stream.
@@ -33,7 +35,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
    * @param   out   the underlying output stream.
    */
   public BlockBufferedOutputStream(OutputStream out){
-    this(out, 8192);
+    this(((FileOutputStream)out), 8192);
   }
   private int count = 0;
   /**
@@ -51,20 +53,25 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
       throw new IllegalArgumentException("Buffer size <= 0");
     }
     buf = ByteBuffer.allocateDirect(size);
-    buf.order(ByteOrder.nativeOrder());
+    //buf.order(ByteOrder.nativeOrder());
     channel = Channels.newChannel(out);
+    hasBeenFlushed = false;
   }
   
   
   /** Flush the internal buffer */
   private void flushBuffer() throws IOException {
+    
+    if(!hasBeenFlushed){
     if (count > 0) {
         buf.limit(count);
         buf.rewind();
         channel.write(buf);
         buf.rewind();
         buf.limit(buf.capacity());
+        hasBeenFlushed = true;
       }
+    }
   }
   
   

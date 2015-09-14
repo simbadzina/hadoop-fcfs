@@ -171,6 +171,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       Integer count = buffersCount.get(tbuf.position);
       if(count != null)
       {
+        synchronized(buffersCount){
+          buffersCount.notify();
+        }
         if(count > 1){
           buffersCount.put(tbuf.position, count -1);
         }
@@ -207,14 +210,25 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
 
-  public void fcfsGateKeeper(){
-    while(buffers.size() >= maxConcurrentReceives){
+  public void fcfsGateKeeper(String position,long blockId){
+    while(true){
+      Integer count = buffersCount.get(position);
+      if(count  == null){
+        LOG.info("keepernull," + position + "," + blockId);
+        break;
+      }
+      
+      if(count < maxConcurrentReceives){
+        LOG.info("keeperok," + position + "," + blockId);
+        break;
+      }
+      LOG.info("gatekeeper," + position + ",keeper," + blockId);
       try{
-        synchronized(buffers){
-          buffers.wait(3000);
+        synchronized(buffersCount){
+          buffersCount.wait(1000);
         }
       }catch(InterruptedException e){
-        LOG.info("fcfsGateKeeper says " + e.getMessage());
+        LOG.info("fcfsgatekeeper error " + e.getMessage());
       }
 
     }

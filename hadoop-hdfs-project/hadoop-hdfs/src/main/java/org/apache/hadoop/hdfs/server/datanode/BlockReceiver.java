@@ -26,11 +26,13 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.zip.Checksum;
@@ -81,7 +83,7 @@ class BlockReceiver implements Closeable {
   }
 
   FCFSManager manager;
-  BlockBufferedOutputStream bout;
+  FilterOutputStream bout;
   private final String blockTag;
   private boolean isClosed = false;
   private long boutSize;
@@ -297,18 +299,32 @@ class BlockReceiver implements Closeable {
             BlockMetadataHeader.writeHeader(checksumOut, diskChecksum);
           } 
 
-          if(isDirectWrite == true){
+          if(isDirectWrite == true || (!(fout instanceof FileOutputStream))){
             boutSize = 1;
+            bout = new BufferedOutputStream(fout);
           }else{
             boutSize = manager.getBlockBufferSize();
+            FileChannel channel = ((FileOutputStream)fout).getChannel();
+            bout = new BlockBufferedOutputStream(fout,channel,(int)boutSize);
+           
+                manager.fcfsGateKeeper(position,block.getBlockId());
+                manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
+            
+          
           }
 
           
           try{
-            bout = new BlockBufferedOutputStream(fout, (int)boutSize);
-            if(boutSize > 1){
-              manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
+            if(fout instanceof FileOutputStream){
+              bout = new BlockBufferedOutputStream(fout, (int)boutSize);
+              if(boutSize > 1){
+                manager.fcfsGateKeeper(position,block.getBlockId());
+                manager.lockAndAdd(block.getBlockId(), bout.getBuf(), position);
+              }
+            }else{
+              bout = new BufferedOutputStream(fout);
             }
+            
           }catch(OutOfMemoryError e) {
             LOG.info("FCFS : OutOfMemoryException");
             boutSize = 1;

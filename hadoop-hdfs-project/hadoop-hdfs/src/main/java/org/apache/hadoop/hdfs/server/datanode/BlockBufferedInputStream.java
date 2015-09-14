@@ -54,8 +54,8 @@ public class BlockBufferedInputStream extends InputStream {
   }
 
 
-  public synchronized long skip(long n) throws IOException {
-    buf.position(buf.position()+(int)n);
+  public synchronized long seekToOffset(long n) throws IOException {
+    buf.position((int)n);
     return n;
   }
 

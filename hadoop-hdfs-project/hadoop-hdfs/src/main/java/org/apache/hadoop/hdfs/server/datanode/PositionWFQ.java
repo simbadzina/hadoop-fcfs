@@ -46,7 +46,7 @@ public class PositionWFQ extends WeightedFairQueue {
       if(count != null){
         if(count >= maxReceives){
           Log.info("DIAG, position:" + entry.getKey() + " count= " + count);
-          //continue;
+          continue;
         }
       }
       if(!entry.getValue().isEmpty()){
