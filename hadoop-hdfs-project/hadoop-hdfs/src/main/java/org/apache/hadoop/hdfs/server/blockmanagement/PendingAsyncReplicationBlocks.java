@@ -67,7 +67,7 @@ public class PendingAsyncReplicationBlocks {
         found.setTimeStamp();
         found.increment();
       }
-      LOG.info("async_insert, " + block.getBlockId() + ", " + found.numNodes);
+      //DZEBUGLOG.info("async_insert, " + block.getBlockId() + ", " + found.numNodes);
     }
     
   }
@@ -93,11 +93,11 @@ public class PendingAsyncReplicationBlocks {
           pendingReplications.remove(block);
           blockIdMapping.remove(block.getBlockId());
         }
-        LOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
+        //DZEBUGLOG.info("async_remove, " + block.getBlockId() + ", " + found.numNodes);
       }
       else
       {
-        LOG.info("async_remove, " + block.getBlockId() + ",notfound");
+        //DZEBUGLOG.info("async_remove, " + block.getBlockId() + ",notfound");
       }
     }
   }

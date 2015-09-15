@@ -65,8 +65,14 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
 
   /** Flush the internal buffer */
   private void flushBuffer() throws IOException {
+    
+  }
+  
+  
+  public void forceToDisk()  throws IOException{
     buf.force();
   }
+  
 
   
   public void close() throws IOException {
@@ -128,7 +134,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
    * @see        java.io.FilterOutputStream#out
    */
   public synchronized void flush() throws IOException {
-    Log.info("BFLUSH,"+count);
+  //DZEBUGLog.info("BFLUSH,"+count);
     flushBuffer();
     out.flush();
   }

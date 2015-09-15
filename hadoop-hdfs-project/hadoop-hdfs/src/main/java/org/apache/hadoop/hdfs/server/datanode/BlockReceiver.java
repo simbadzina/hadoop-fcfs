@@ -72,16 +72,16 @@ class BlockReceiver implements Closeable {
   public static final Log LOG = DataNode.LOG;
   static final Log ClientTraceLog = DataNode.ClientTraceLog;
 
- 
-  
+
+
   public int getCount(){
     if(bout instanceof BlockBufferedOutputStream){
       return ((BlockBufferedOutputStream)bout).getCount();
     }
     return 0;
   }
-  
-  
+
+
   public long getBlockId(){
     return block.getBlockId();
   }
@@ -314,9 +314,9 @@ class BlockReceiver implements Closeable {
 
           }
 
-         
+
           LOG.info("FCFS_BOUTSIZE, " + boutSize);
-          
+
 
     } catch (ReplicaAlreadyExistsException bae) {
       throw bae;
@@ -353,16 +353,16 @@ class BlockReceiver implements Closeable {
    */
   @Override
   public void close() throws IOException {
-    
+
     if((!isClosed) && (!blockTag.isEmpty())){
       isClosed = true;
       LOG.info("BLOCKTAG," + blockTag);
     }
-    
+
     packetReceiver.close();
 
     IOException ioe = null;
-    if (syncOnClose && (fout != null || checksumOut != null)) {
+    if (syncOnClose && (bout != null || checksumOut != null)) {
       datanode.metrics.incrFsyncCount();      
     }
     long flushTotalNanos = 0;
@@ -391,10 +391,9 @@ class BlockReceiver implements Closeable {
     }
     // close block file
     try {
-      if (fout != null) {
+      if (bout != null) {
         long flushStartNanos = System.nanoTime();
         bout.flush();
-        fout.flush();
         long flushEndNanos = System.nanoTime();
         if (syncOnClose) {
           long fsyncStartNanos = flushEndNanos;
@@ -404,14 +403,13 @@ class BlockReceiver implements Closeable {
         flushTotalNanos += flushEndNanos - flushStartNanos;
         measuredFlushTime = true;
         bout.close();
-        fout.close();
-        fout = null;
+        bout = null;
       }
     } catch (IOException e) {
       ioe = new IOException(e.getMessage() + "DZINEX closing block file");
     }
     finally{
-      IOUtils.closeStream(fout);
+      //IOUtils.closeStream(fout);
     }
     if (replicaHandler != null) {
       IOUtils.cleanup(null, replicaHandler);
@@ -430,7 +428,7 @@ class BlockReceiver implements Closeable {
   void miniClose() throws IOException{
     if(reachedPacketResponderClose==true){
       try (ReplicaHandler handler = BlockReceiver.this.claimReplicaHandler()) {
-        
+
         block.setNumBytes(replicaInfo.getNumBytes());
         datanode.data.finalizeBlock(block);
       }
@@ -444,10 +442,10 @@ class BlockReceiver implements Closeable {
   }
 
   void delayedClose() throws IOException{
-    
+
 
     BlockReceiver.this.close();
-    
+
     if (isDatanode || isTransfer) {
       // Hold a volume reference to finalize block.
       try (ReplicaHandler handler = claimReplicaHandler()) {
@@ -490,10 +488,9 @@ class BlockReceiver implements Closeable {
       }
       flushTotalNanos += flushEndNanos - flushStartNanos;
     }
-    if (fout != null) {
+    if (bout != null) {
       long flushStartNanos = System.nanoTime();
       bout.flush();
-      fout.flush();
       long flushEndNanos = System.nanoTime();
       if (isSync) {
         long fsyncStartNanos = flushEndNanos;
@@ -502,7 +499,7 @@ class BlockReceiver implements Closeable {
       }
       flushTotalNanos += flushEndNanos - flushStartNanos;
     }
-    if (checksumOut != null || fout != null) {
+    if (checksumOut != null || bout != null) {
       datanode.metrics.addFlushNanos(flushTotalNanos);
       if (isSync) {
         datanode.metrics.incrFsyncCount();      
@@ -984,7 +981,7 @@ class BlockReceiver implements Closeable {
               // The worst case is not recovering this RBW replica. 
               // Client will fall back to regular pipeline recovery.
             } finally {
-              IOUtils.cleanup(LOG, fout);
+              IOUtils.cleanup(LOG, bout);
             }
             try {              
               // Even if the connection is closed after the ack packet is
@@ -1045,8 +1042,8 @@ class BlockReceiver implements Closeable {
    * will be overwritten.
    */
   private void adjustCrcFilePosition() throws IOException {
-    if (fout != null) {
-      fout.flush();
+    if (bout != null) {
+      bout.flush();
     }
     if (checksumOut != null) {
       checksumOut.flush();

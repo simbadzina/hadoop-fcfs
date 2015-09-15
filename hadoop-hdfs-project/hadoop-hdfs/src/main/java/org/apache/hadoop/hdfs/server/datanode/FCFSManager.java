@@ -104,7 +104,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private static native int mlock(ByteBuffer buf,int size);
   private static native int munlock(ByteBuffer buf,int size);
 
-  class TimedBuffer{
+  class TimedBuffer implements Runnable{
     public long time;
     public String position;
     BlockBufferedOutputStream bout;
@@ -113,6 +113,26 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       bout = _bout;
       time = System.currentTimeMillis();
       position = pos;
+    }
+
+    @Override
+    public void run() {
+      //try{
+      //bout.forceToDisk();
+      //}catch(IOException e){
+       // LOG.info("ForcingException," + e.getMessage());
+      //}
+      int mres = FCFSManager.munlock(bout.buf,bout.buf.capacity());
+      LOG.info("MUNLOCKRES," + mres);
+      try {
+        Field cleanerField = bout.buf.getClass().getDeclaredField("cleaner");
+        cleanerField.setAccessible(true);
+        Cleaner cleaner = (Cleaner) cleanerField.get(bout.buf);
+        cleaner.clean();
+      } catch(Exception ex) { 
+        LOG.warn("Error cleaning directly allocated buffer");
+      }
+      
     }
   }
 
@@ -144,7 +164,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   public void lockAndAdd(long blockID,BlockBufferedOutputStream bout,String position){
-    mlock(bout.buf, bout.getLength());
+    int mres = mlock(bout.buf, bout.getLength());
+    LOG.info("MLOCKRES," + mres + ",MLOCK," + blockID);
     buffers.put(Long.valueOf(blockID), new TimedBuffer(bout,position));
     lock.lock();
     boolean wasThere = unAckBuffers.remove(blockID);
@@ -157,12 +178,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       }
     }
     lock.unlock();
-    LOG.info("BBUF," + blockID + ","+ buffers.size());
-    String temp = "";
-    for(Entry<String, Integer> entry : buffersCount.entrySet()){
-      temp += entry.getKey() + "->" + entry.getValue() + ";  ";
-    }
-    LOG.info("buffersCountA: " + temp);
+  //DZEBUGLOG.info("BBUF," + blockID + ","+ buffers.size());
+  //DZEBUGString temp = "";
+  //DZEBUGfor(Entry<String, Integer> entry : buffersCount.entrySet()){
+  //DZEBUG  temp += entry.getKey() + "->" + entry.getValue() + ";  ";
+  //DZEBUG}
+  //DZEBUGLOG.info("buffersCountA: " + temp);
   }
 
   public void unlockAndRemove(long blockID){
@@ -173,33 +194,21 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       Integer count = buffersCount.get(tbuf.position);
       if(count != null)
       {
-        synchronized(buffersCount){
-          buffersCount.notify();
-        }
+        
         if(count > 1){
           buffersCount.put(tbuf.position, count -1);
         }
+        synchronized(buffersCount){
+          buffersCount.notify();
+        }
       }
       lock.unlock();
-      munlock(tbuf.bout.buf,tbuf.bout.buf.capacity());
-      try {
-        Field cleanerField = tbuf.bout.buf.getClass().getDeclaredField("cleaner");
-        cleanerField.setAccessible(true);
-        Cleaner cleaner = (Cleaner) cleanerField.get(tbuf.bout.buf);
-        cleaner.clean();
-      } catch(Exception ex) { 
-        LOG.warn("Error cleaning directly allocated buffer");
-      }
-      LOG.info("RBUFP," + blockID);
+      pool.submit(tbuf);
+    //DZEBUGLOG.info("RBUFP," + blockID);
     }else{
-      LOG.info("RBUFN," + blockID);
+    //DZEBUGLOG.info("RBUFN," + blockID);
     }
     
-    String temp = "";
-    for(Entry<String, Integer> entry : buffersCount.entrySet()){
-      temp += entry.getKey() + "->" + entry.getValue() + ";  ";
-    }
-    LOG.info("buffersCountB: " + temp);
 
   }
 
@@ -216,15 +225,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     while(true){
       Integer count = buffersCount.get(position);
       if(count  == null){
-        LOG.info("keepernull," + position + "," + blockId);
+        //DZEBUGLOG.info("keepernull," + position + "," + blockId);
         break;
       }
       
       if(count < maxConcurrentReceives){
-        LOG.info("keeperok," + position + "," + blockId);
+      //DZEBUGLOG.info("keeperok," + position + "," + blockId);
         break;
       }
-      LOG.info("gatekeeper," + position + ",keeper," + blockId);
+    //DZEBUGLOG.info("gatekeeper," + position + ",keeper," + blockId);
       try{
         synchronized(buffersCount){
           buffersCount.wait(1000);
@@ -335,12 +344,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         LOG.info(toReceive + "," + System.currentTimeMillis());
         if(toReceive != null){
           try{
-            LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
+          //DZEBUGLOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
             this.manager.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
             manager.addPlaceHolder(toReceive.position);
-            LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
+          //DZEBUGLOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
           }catch(IOException e){
-            LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
+          //DZEBUGLOG.warn("YOHWE : notifying upstream : " + e.getMessage());
           }
         }
 
@@ -406,6 +415,20 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.info(sType.name() + ",FCFS_STAT_WRITE_TOTAL, " + procReader.getWriteTotal());
       LOG.info(sType.name() + ",FCFS_STAT_IMM_WRITE, " + numImmWrite);
       LOG.info(sType.name() + ",FCFS_STAT_NUM_POS_QUEUE, " + receives.queues.size());
+      LOG.info("FCFS_STAT_BUFFERS_SIZE,"+ buffers.size());
+      Integer count;
+      count = buffersCount.get("0");
+      if(count != null){
+        LOG.info("FCFS_STAT_BUFFERS_POS,0,"+ count );
+      }
+      count = buffersCount.get("1");
+      if(count != null){
+        LOG.info("FCFS_STAT_BUFFERS_POS,1,"+ count );
+      }
+      count = buffersCount.get("2");
+      if(count != null){
+        LOG.info("FCFS_STAT_BUFFERS_POS,2,"+ count );
+      }
 
     }
 
@@ -502,7 +525,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
 
 
-    pool = Executors.newFixedThreadPool(10);
+    pool = Executors.newFixedThreadPool(16);
     //pool = Executors.newFixedThreadPool(5);
 
     //pool = Executors.newSingleThreadExecutor();
@@ -565,7 +588,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     public void run() {
       try{
         try{
-          LOG.info("FCFS_BCOUNT, " + blockReceiver.getCount());
+        //DZEBUG  LOG.info("FCFS_BCOUNT, " + blockReceiver.getCount());
           blockReceiver.delayedClose();
         }catch(Exception e){
           LOG.warn("PendingWriteException : " + e.toString());
@@ -573,7 +596,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         if(this.toForward.hasTargets()){
           this.manager.addPendingForward(this.toForward);
         } else{
-          LOG.info("REMOVING," + this.blockReceiver.getBlockId());
+        //DZEBUG  LOG.info("REMOVING," + this.blockReceiver.getBlockId());
           this.manager.unlockAndRemove(this.blockReceiver.getBlockId());
         }
       }finally{
@@ -630,7 +653,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     public void forward(){
       try{
-        LOG.info("DZINEX : ppSize : " + pipelineSize);
+      //DZEBUGLOG.info("DZINEX : ppSize : " + pipelineSize);
         datanode.FCFStransferBlock(block,targets,targetStorageTypes,replicationPriority, flowName,numImmediate,pipelineSize);
       }catch(Exception e){
         LOG.warn(e.toString());
@@ -649,13 +672,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   void addPendingWrite(BlockReceiver receiver,ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, 
       float replicationPriority, String flowName,int numImmediate,int pipelineSize,StorageType sType) throws IOException{
 
-    LOG.warn("DZUDE : Adding pending write 1");
+  //DZEBUGLOG.info("DZUDE : Adding pending write 1");
     PendingForward toForward = null;
     toForward = new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority,flowName,numImmediate,pipelineSize);
 
-    if(receiver==null){
-      LOG.warn("SILO : receiver is null");
-    }
     this.getStoMan(sType).pendingWrites.add(new PendingWrite(receiver,this,toForward,sType));
   }
 
@@ -663,7 +683,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void addPendingForward(ExtendedBlock block, DatanodeInfo[] targets,StorageType[] targetStorageTypes, float replicationPriority, String flowName,int numImmediate,int pipelineSize){
     pendingForwards.add(new PendingForward(block,targets,targetStorageTypes,datanode,replicationPriority, flowName,numImmediate,pipelineSize));
     int pipelinePosition = (pipelineSize - targets.length)-1;
-    LOG.warn("DZUDE : Adding pending forward 1");
+  //DZEBUGLOG.info("DZUDE : Adding pending forward 1");
     try{
       String message = PFPUtils.merge(new String[]{
           this.datanode.getDatanodeId().getIpAddr(),
@@ -684,7 +704,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     toForward.resetAge();
     pendingForwards.add(toForward);
     int pipelinePosition = (toForward.pipelineSize - toForward.targets.length)-1;
-    LOG.warn("DZUDE : Adding pending forward 2");
+  //DZEBUGLOG.info("DZUDE : Adding pending forward 2");
     try{
       String message = PFPUtils.merge(new String[]{
           this.datanode.getDatanodeId().getIpAddr(),
@@ -821,10 +841,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   @Override
   public String informUpStream(String message) throws IOException {
-    LOG.info("DZUDE upstream node received request for Block : " + message);
+  //DZEBUGLOG.info("DZUDE upstream node received request for Block : " + message);
     String[] parts= PFPUtils.split(message);
     if(parts[0].equals("remove")){
-      LOG.info("DZUDE removing block " + parts[1] + " from pendingForwards");
+    //DZEBUGLOG.info("DZUDE removing block " + parts[1] + " from pendingForwards");
       this.removeFromPendingForward(parts[1]);
       return ("removed : " + parts[1]);
     }
@@ -840,15 +860,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   public boolean sendDownStream(String blockID){
-    LOG.info("AMDG : SDS : REQUEST : " + blockID);
-    LOG.info("AMDG : SDS : SIZE : " + pendingForwards.size());
+  //DZEBUGLOG.info("AMDG : SDS : REQUEST : " + blockID);
+  //DZEBUG LOG.info("AMDG : SDS : SIZE : " + pendingForwards.size());
     Iterator<PendingForward> it = pendingForwards.iterator();
     boolean isFound = false;
     while(it.hasNext() && !isFound){
       PendingForward current = it.next();
       if(blockID.equals(Long.valueOf(current.block.getBlockId()).toString())){
         isFound = true;
-        LOG.info("AMDG : SDS : HANDE :" + current.block.getBlockId());
+      //DZEBUG LOG.info("AMDG : SDS : HANDE :" + current.block.getBlockId());
         it.remove();
         current.forward();  
       }
@@ -866,7 +886,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       current= it.next();
       if(blockID.equals(Long.valueOf(current.block.getBlockId()).toString())){
         isFound = true;
-        LOG.info("AMDG : RFPF : FOUND :" + current.block.getBlockId());
+      //DZEBUGLOG.info("AMDG : RFPF : FOUND :" + current.block.getBlockId());
         it.remove();
       }
 
@@ -895,7 +915,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   @Override
   public String informDownStream(String message) throws IOException{
-    LOG.info("DZUDE downstream node got : " + message);
+  //DZEBUGLOG.info("DZUDE downstream node got : " + message);
     String[] parts = PFPUtils.split(message);
     StorageType sType = StorageType.parseStorageType(parts[6]);
 
@@ -954,7 +974,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       upstream = createPipelineFeedbackProtocolProxy(datanodeIP, conf, 
           this.datanode.getDnConf().socketTimeout);
       try{
-        LOG.info("Zvaita response from upstream is : " +  upstream.informUpStream(message));
+       LOG.info("Zvaita response from upstream is : " +  upstream.informUpStream(message));
       } 
       catch(RemoteException re){
         LOG.warn("Failed to notify downstream node Remote : " + re.getMessage());
