@@ -136,6 +136,7 @@ public class BlockBufferedOutputStream extends FilterOutputStream{
   public synchronized void flush() throws IOException {
   //DZEBUGLog.info("BFLUSH,"+count);
     flushBuffer();
+    out.flush();
   }
 
   public ByteBuffer getBuf(){
