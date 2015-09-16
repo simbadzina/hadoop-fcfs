@@ -82,7 +82,6 @@ public class BlockBufferedInputStream extends InputStream {
   
   public void close() throws IOException {
      channel.truncate(count);
-   //DZEBUGLog.info("truncating", + blockID + "," + count);
      channel.close();
      manager.unlockAndRemove(blockID); 
   }
