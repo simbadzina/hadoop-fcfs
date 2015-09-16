@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import org.apache.hadoop.io.nativeio.NativeIO;
 
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
@@ -117,22 +118,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
     @Override
     public void run() {
-      //try{
-      //bout.forceToDisk();
-      //}catch(IOException e){
-       // LOG.info("ForcingException," + e.getMessage());
-      //}
-      int mres = FCFSManager.munlock(bout.buf,bout.buf.capacity());
-      LOG.info("MUNLOCKRES," + mres);
-      try {
-        Field cleanerField = bout.buf.getClass().getDeclaredField("cleaner");
-        cleanerField.setAccessible(true);
-        Cleaner cleaner = (Cleaner) cleanerField.get(bout.buf);
-        cleaner.clean();
-      } catch(Exception ex) { 
-        LOG.warn("Error cleaning directly allocated buffer");
-      }
-      
+      NativeIO.POSIX.munmap(bout.buf);
+  
     }
   }
 
@@ -164,8 +151,11 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   public void lockAndAdd(long blockID,BlockBufferedOutputStream bout,String position){
-    int mres = mlock(bout.buf, bout.getLength());
-    LOG.info("MLOCKRES," + mres + ",MLOCK," + blockID);
+   try{
+    NativeIO.POSIX.mlock(bout.buf,bout.getLength());
+   }catch(IOException e){
+     LOG.info("MERRORLOCK," + e.getMessage());
+   }
     buffers.put(Long.valueOf(blockID), new TimedBuffer(bout,position));
     lock.lock();
     boolean wasThere = unAckBuffers.remove(blockID);

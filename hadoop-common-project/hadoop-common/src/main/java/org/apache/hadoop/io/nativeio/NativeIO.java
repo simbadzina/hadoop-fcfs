@@ -306,7 +306,7 @@ public class NativeIO {
      * 
      * @throws NativeIOException
      */
-    static void mlock(ByteBuffer buffer, long len)
+    public static void mlock(ByteBuffer buffer, long len)
         throws IOException {
       assertCodeLoaded();
       if (!buffer.isDirect()) {
