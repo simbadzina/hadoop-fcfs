@@ -193,7 +193,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         }
       }
       lock.unlock();
-      pool.submit(tbuf);
+      tbuf.run();
     //DZEBUGLOG.info("RBUFP," + blockID);
     }else{
     //DZEBUGLOG.info("RBUFN," + blockID);

@@ -19,7 +19,6 @@ public class BlockBufferedInputStream extends InputStream {
    * it may be replaced by another array of
    * a different size.
    */
-  MappedByteBuffer buf;
   BlockBufferedOutputStream bout;
   FileChannel channel;
   FCFSManager manager;
@@ -36,44 +35,43 @@ public class BlockBufferedInputStream extends InputStream {
   protected int markpos = -1;
   protected int marklimit;
 
-  public BlockBufferedInputStream(FCFSManager _man, long _bId,BlockBufferedOutputStream bout) {
-   
+  public BlockBufferedInputStream(FCFSManager _man, long _bId,BlockBufferedOutputStream _bout) {
+    bout= _bout;
     manager = _man;
     blockID = _bId;
-    buf = bout.buf;
     count = bout.getCount();
     channel = bout.channel;
-    buf.position(0);
+    bout.buf.position(0);
   }
 
 
   @Override
   public synchronized int read() throws IOException {
-      return buf.get();
+      return bout.buf.get();
   }
 
   public synchronized int read(byte b[], int off, int len)
       throws IOException
   {
-    buf.get(b, off, len);
+    bout.buf.get(b, off, len);
     return len;
   }
 
 
   public synchronized long seekToOffset(long n) throws IOException {
-    buf.position((int)n);
+    bout.buf.position((int)n);
     return n;
   }
 
   public synchronized void mark(int readlimit) {
     marklimit = readlimit;
-    markpos = buf.position();
+    markpos = bout.buf.position();
   }
   public synchronized void reset() throws IOException {
 
     if (markpos < 0)
       throw new IOException("Resetting to invalid mark");
-    buf.position(markpos);
+    bout.buf.position(markpos);
   }
 
   public boolean markSupported() {
@@ -82,7 +80,6 @@ public class BlockBufferedInputStream extends InputStream {
   
   public void close() throws IOException {
      channel.truncate(count);
-   //DZEBUGLog.info("truncating", + blockID + "," + count);
      channel.close();
      manager.unlockAndRemove(blockID); 
   }
