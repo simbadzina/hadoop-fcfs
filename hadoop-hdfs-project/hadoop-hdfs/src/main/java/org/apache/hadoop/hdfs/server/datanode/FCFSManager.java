@@ -116,7 +116,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     
     void processQueue(){
       //testing if disk activity is low
-      if( (smoothedActivity < this.diskActivityThreshold) ||  (numImmWrite.get() < 1)){
+      if( (smoothedActivity < this.diskActivityThreshold)){
         if(!pendingWrites.isEmpty()){
           removePendingWrite();
         }
