@@ -10,12 +10,12 @@ public class LeafWFQ extends WeightedFairQueue {
   }
   
   void addReceive(PendingReceive receive) {
-    receives.add(receive);
+    receives.offerFirst(receive);
   }
 
   @Override
   PendingReceive getReceive() {
-    return receives.remove();
+    return receives.pollFirst();
   }
 
   @Override
