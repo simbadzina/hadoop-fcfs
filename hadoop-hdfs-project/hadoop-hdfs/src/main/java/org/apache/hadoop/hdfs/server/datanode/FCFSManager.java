@@ -31,7 +31,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   private final DataNode datanode;
   private final Configuration conf;
   public static final Log LOG = DataNode.LOG;
-
+  private int numFlushingThreads;
   private Queue<PendingForward> pendingForwards;
   
 
@@ -74,6 +74,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     private final StorageType sType;
     private AtomicInteger foregroundRobin;
     private AtomicInteger numImmWrite;
+   
+    private AtomicInteger inPool;
 
     StoManager(FCFSManager _manager, String storageDevice, StorageType _sType) throws IOException{
       manager = _manager;
@@ -81,6 +83,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       numAsyncWrite = new AtomicInteger(0);
       foregroundRobin = new AtomicInteger(0);
       numImmWrite = new AtomicInteger(0);
+      inPool = new AtomicInteger(0);
       pendingWrites = new PriorityBlockingQueue<PendingWrite>();
       unAckRequests = new PriorityBlockingQueue<UnAckRequest>();
       receives = new PositionWFQ();
@@ -109,6 +112,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     
     void removePendingWrite(){
       if(!pendingWrites.isEmpty()){
+        inPool.getAndIncrement();
         pool.submit(pendingWrites.remove());
       }
     }
@@ -179,7 +183,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       }
 
       diskActivityThreshold = (int)((lowActivityMean+highActivityMean)/2);
-
+      //diskActivityThreshold = 1000;
     }
     
     void stat_log(){
@@ -207,6 +211,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.info(sType.name() + ",FCFS_STAT_WRITE_TOTAL, " + procReader.getWriteTotal());
       LOG.info(sType.name() + ",FCFS_STAT_IMM_WRITE, " + numImmWrite);
       LOG.info(sType.name() + ",FCFS_STAT_NUM_POS_QUEUE, " + receives.queues.size());
+      LOG.info(sType.name() + ",FCFS_STAT_INPOOL, " + inPool.get());
       
     }
     
@@ -260,6 +265,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public void removeAsyncWrite(StorageType sType) throws IOException{
     getStoMan(sType).numAsyncWrite.getAndDecrement();
   }
+  
+  public void removeInPool(StorageType sType) throws IOException{
+    getStoMan(sType).inPool.getAndDecrement();
+  }
 
   public void addImmWrite(StorageType sType) throws IOException{
     getStoMan(sType).addImmWrite();
@@ -281,6 +290,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
    
     maxConcurrentReceives = conf.getInt(DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_KEY,
         DFSConfigKeys.FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT);
+    numFlushingThreads = conf.getInt(DFSConfigKeys.FCFS_NUM_FLUSHING_THREADS_KEY,
+        DFSConfigKeys.FCFS_NUM_FLUSHING_THREADS_DEFAULT);
     bufferSize = conf.getInt(DFSConfigKeys.DFS_BLOCK_SIZE_KEY,(int)DFSConfigKeys.DFS_BLOCK_SIZE_DEFAULT) + 1024*1024;
     activitySmoothingExp= conf.getFloat(DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_KEY,
         DFSConfigKeys.FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT);
@@ -300,8 +311,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     numBlocks = new AtomicInteger(0);
 
    
-
-    pool = Executors.newFixedThreadPool(maxConcurrentReceives);
+    
+    pool = Executors.newFixedThreadPool(numFlushingThreads);
     
     //pool = Executors.newSingleThreadExecutor();
     try{
@@ -312,9 +323,11 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.warn(e.getMessage());
     }  
     
-    pool.submit(ssdStoManager);
-    pool.submit(diskStoManager);
+    Thread ssdThread = new Thread(ssdStoManager);
+    Thread diskThread = new Thread(diskStoManager);
     
+    ssdThread.start();
+    diskThread.start();
     
 
     try{
@@ -373,6 +386,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       }finally{
         try{
            this.manager.removeAsyncWrite(sType);
+           this.manager.removeInPool(sType);
         }catch(IOException e){
           LOG.warn(e.toString());
         }

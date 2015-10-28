@@ -4,17 +4,23 @@ import java.util.LinkedList;
 
 public class LeafWFQ extends WeightedFairQueue {
   LinkedList<PendingReceive> receives = new LinkedList<PendingReceive>();
-
+  LinkedList<BTime> times = new LinkedList<BTime>();
+  
   LeafWFQ(){
    
   }
   
   void addReceive(PendingReceive receive) {
-    receives.offerFirst(receive);
+    times.addLast(new BTime(receive.pStart,receive.pEnd));
+    receives.addLast(receive);
   }
 
   @Override
   PendingReceive getReceive() {
+    times.pollFirst();
+    
+    //change the line below to change from queue to stack
+    //first is queue
     return receives.pollFirst();
   }
 
@@ -29,7 +35,8 @@ public class LeafWFQ extends WeightedFairQueue {
     for(int i = 0; i < receives.size();i++){
         removed = receives.get(i);
         if(removed.blockID.equals(blockID)){
-          receives.remove(i);
+          receives.remove(i);  
+          times.pollFirst();
           return removed;
         }    
       }
@@ -48,16 +55,16 @@ public class LeafWFQ extends WeightedFairQueue {
 
   @Override
   long getStartTime() {
-    if(!receives.isEmpty()){
-      return receives.getFirst().jStart;
+    if(!times.isEmpty()){
+      return times.getFirst().start;
     }
     return 0;
   }
 
   @Override
   long getFinishTime() {
-    if(!receives.isEmpty()){
-      return receives.getLast().jEnd;
+    if(!times.isEmpty()){
+      return times.getLast().end;
     }
     return 0;
   }

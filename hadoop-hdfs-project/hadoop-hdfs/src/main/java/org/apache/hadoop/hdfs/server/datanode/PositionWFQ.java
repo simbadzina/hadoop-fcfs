@@ -15,10 +15,11 @@ public class PositionWFQ extends WeightedFairQueue {
   
   @Override
   synchronized void addReceive(PendingReceive receive) {
-    JobWFQ curr = queues.get(receive.position);
+    String positionToUse = receive.position;
+    JobWFQ curr = queues.get(positionToUse);
     if(curr == null){
       curr = new JobWFQ();
-      queues.put(receive.position, curr);
+      queues.put(positionToUse, curr);
     }
       
     long startTime = this.getVirtualTime();
@@ -97,13 +98,14 @@ public class PositionWFQ extends WeightedFairQueue {
 
   @Override
   synchronized PendingReceive remove(String blockID, String flow, String position) {
-    JobWFQ curr = queues.get(position);
+    String positionToUse = position;
+    JobWFQ curr = queues.get(positionToUse);
     PendingReceive removed = null;
     if(curr != null){
-      removed = curr.remove(blockID,flow,position);
+      removed = curr.remove(blockID,flow,positionToUse);
       if(removed !=null){
         if(curr.isEmpty()){
-          queues.remove(position);
+          queues.remove(positionToUse);
         }  
       }
     }  

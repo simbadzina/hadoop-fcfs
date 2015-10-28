@@ -60,6 +60,10 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final float   FCFS_REPLICATION_PRIORITY_DEFAULT = 1.0f;
   public static final String  FCFS_MAX_CONCURRENT_RECEIVES_KEY = "fcfs.max-concurrent-receives";
   public static final int     FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT = 10;
+  public static final String  FCFS_NUM_FLUSHING_THREADS_KEY = "fcfs.num-flushing-threads";
+  public static final int     FCFS_NUM_FLUSHING_THREADS_DEFAULT = 1;
+  
+  
   public static final String  FCFS_REPLICATION_TIMEOUT_KEY = "fcfs.replication-timeout";
   public static final int     FCFS_REPLICATION_TIMEOUT_DEFAULT = 300000;
   public static final String  FCFS_RPC_ADDRESS_KEY = "dfs.delayedreplication.rpc.address";
