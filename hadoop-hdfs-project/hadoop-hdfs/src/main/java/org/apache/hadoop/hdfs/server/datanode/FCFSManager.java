@@ -70,12 +70,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     private long lowActivityMean = 0;
     private PositionWFQ receives;
     private long smoothedActivity=0;
+    private long diskActivity = 0;
     private long rawActivity=0;
     private final StorageType sType;
     private AtomicInteger foregroundRobin;
     private AtomicInteger numImmWrite;
    
     private AtomicInteger inPool;
+//    private long prevTime = 0;
+//    private long currTime = 1;
 
     StoManager(FCFSManager _manager, String storageDevice, StorageType _sType) throws IOException{
       manager = _manager;
@@ -120,8 +123,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     
     void processQueue(){
       //testing if disk activity is low
-      if( (smoothedActivity < this.diskActivityThreshold)){
+      if( (rawActivity < diskActivityThreshold)){
         if(!pendingWrites.isEmpty()){
+          LOG.info("DISK,FCFS_STAT_DZISTAT_ACTIVITY, " + rawActivity);
+          LOG.info("DISK,FCFS_STAT_DZISTAT_THRESHOLD, " + diskActivityThreshold);
           removePendingWrite();
         }
 
@@ -172,10 +177,19 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       }catch(IOException e){
         LOG.warn("Error in ProcReader : " + e);
       }
-      rawActivity = procReader.getWait();
-      smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + 
-          (activitySmoothingExp*rawActivity));
-
+      
+//      currTime = System.currentTimeMillis();
+//      if(currTime-prevTime >= 10000){
+//       lowActivityMean = 0;
+//       highActivityMean = 1;
+//       prevTime = currTime;
+//      }
+     
+      //rawActivity = procReader.getWait();
+      diskActivity = procReader.getWriteThroughput() + procReader.getReadThroughput();
+      rawActivity = procReader.getMemThroughput() + diskActivity;
+      smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + (activitySmoothingExp*diskActivity));
+      //smoothedActivity = rawActivity;
       if( Math.abs(smoothedActivity-lowActivityMean) < Math.abs(smoothedActivity-highActivityMean)){
         lowActivityMean = (long)(lowActivityMean*(1-clusterSmoothingExp) + smoothedActivity*clusterSmoothingExp);
       }else{
@@ -207,6 +221,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       LOG.info(sType.name() + ",FCFS_STAT_ACTIVITY_DIFFERENCE, " + (smoothedActivity-diskActivityThreshold));
       LOG.info(sType.name() + ",FCFS_STAT_READ_THROUGHPUT, " + procReader.getReadThroughput());
       LOG.info(sType.name() + ",FCFS_STAT_WRITE_THROUGHPUT, " + procReader.getWriteThroughput());
+      LOG.info(sType.name() + ",FCFS_STAT_MEM_THROUGHPUT, " + procReader.getMemThroughput());
+      LOG.info(sType.name() + ",FCFS_STAT_COMBINED_THROUGHPUT, " + (procReader.getMemThroughput() + procReader.getReadThroughput() + procReader.getWriteThroughput()));
       LOG.info(sType.name() + ",FCFS_STAT_READ_TOTAL, " + procReader.getReadTotal());
       LOG.info(sType.name() + ",FCFS_STAT_WRITE_TOTAL, " + procReader.getWriteTotal());
       LOG.info(sType.name() + ",FCFS_STAT_IMM_WRITE, " + numImmWrite);

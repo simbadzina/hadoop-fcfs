@@ -21,7 +21,7 @@ public class LeafWFQ extends WeightedFairQueue {
     
     //change the line below to change from queue to stack
     //first is queue
-    return receives.pollFirst();
+    return receives.pollLast();
   }
 
   @Override

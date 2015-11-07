@@ -7,21 +7,35 @@ import java.io.FileNotFoundException;
 
 public class ProcReader {
   private final static String DISK_FILE = "/proc/diskstats";
+  private final static String MEM_FILE = "/proc/meminfo";
+  private final static String DIRTY = "Dirty";
   private String disk = "sdc";
   private int wait;
   private Stats prevStats;
   private Stats currStats;
   private RandomAccessFile rFile;
+  private RandomAccessFile mFile;
   private DStats prevDStats;
   private DStats currDStats;
   private DStats initDStats;
+  private MStats currMemStats;
+  private MStats prevMemStats;
+  private long prevTime;
+  private long currTime;
 
   public ProcReader(String storageDevice) throws FileNotFoundException,IOException{
     prevStats = null;
     currStats = null;
     rFile = new RandomAccessFile(DISK_FILE,"r");
+    mFile = new RandomAccessFile(MEM_FILE,"r");
     prevDStats = null;
     currDStats = null;
+    
+    currMemStats = null;
+    prevMemStats = null;
+    
+    prevTime = 0;
+    currTime = 1000;
     disk = storageDevice;
     updateInfo();
     updateInfo();
@@ -29,6 +43,11 @@ public class ProcReader {
   }
 
   public void updateInfo() throws IOException{
+    currTime = System.currentTimeMillis();
+    if(currTime-prevTime < 100){
+     return; 
+    }
+    prevTime = currTime;
     //BufferedReader br = new BufferedReader(new FileReader(DISK_FILE));
     String line;
     rFile.seek(0);
@@ -52,6 +71,15 @@ public class ProcReader {
       }
 
     }
+    
+    mFile.seek(0);
+    while ((line = mFile.readLine()) != null) {
+      if (line.startsWith(DIRTY)) {
+        prevMemStats = currMemStats;
+        currMemStats = new MStats(Long.parseLong(line.replaceAll("[\\D]", ""))*1024);
+        break;
+      }
+    }
   }
 
   public int getWait(){
@@ -62,6 +90,7 @@ public class ProcReader {
   {
     try{
     rFile.close();
+    mFile.close();
     }catch(IOException e){
       System.out.println("Failed to close file in ProcReader");
     }
@@ -82,6 +111,10 @@ public class ProcReader {
   
   public long getWriteTotal(){
     return DStats.getTotalWrite(initDStats,currDStats);
+  }
+  
+  public int getMemThroughput(){
+    return MStats.getMemThroughput(prevMemStats, currMemStats);
   }
   
 
@@ -160,4 +193,21 @@ class DStats{
 
 }
 
+
+class MStats{
+  
+  MStats(long mUsed){
+    memUsed = mUsed;
+    time = System.currentTimeMillis();
+  }
+  public long time;
+  public long memUsed;
+  
+  
+  public static int getMemThroughput(MStats prev, MStats curr){
+    long bytesDiff = curr.memUsed - prev.memUsed;
+    long timeDiff = curr.time - prev.time;
+    return (int)((bytesDiff/timeDiff)*1000);
+  }
+}
 
