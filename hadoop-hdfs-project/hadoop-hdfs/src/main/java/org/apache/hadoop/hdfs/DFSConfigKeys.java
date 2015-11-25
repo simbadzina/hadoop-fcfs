@@ -76,6 +76,9 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_FLOW_NAME_DEFAULT = "";
   public static final String  FCFS_MAX_UNACK_TIME_KEY = "fcfs.max.unack.time";
   public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 5000;
+  
+  public static final String  FCFS_STATIC_THRESHOLD_KEY = "fcfs.static-threshold";
+  public static final int     FCFS_STATIC_THRESHOLD_DEFAULT = 100;
 
   public static final String  DFS_STREAM_BUFFER_SIZE_KEY = "dfs.stream-buffer-size";
   public static final int     DFS_STREAM_BUFFER_SIZE_DEFAULT = 4096;

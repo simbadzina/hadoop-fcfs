@@ -66,6 +66,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     public Queue<UnAckRequest> unAckRequests;
     private AtomicInteger numAsyncWrite;
     private int diskActivityThreshold;
+    private int staticThreshold;
     private long highActivityMean = 1;
     private long lowActivityMean = 0;
     private PositionWFQ receives;
@@ -91,6 +92,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       unAckRequests = new PriorityBlockingQueue<UnAckRequest>();
       receives = new PositionWFQ();
       sType = _sType;
+      staticThreshold = manager.conf.getInt(DFSConfigKeys.FCFS_STATIC_THRESHOLD_KEY,
+          DFSConfigKeys.FCFS_STATIC_THRESHOLD_DEFAULT) * (1024*1024);
     }
     
     @Override
@@ -123,9 +126,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     
     void processQueue(){
       //testing if disk activity is low
-      if( (rawActivity < diskActivityThreshold)){
+      if( (smoothedActivity < diskActivityThreshold)){
         if(!pendingWrites.isEmpty()){
-          LOG.info("DISK,FCFS_STAT_DZISTAT_ACTIVITY, " + rawActivity);
+          LOG.info("DISK,FCFS_STAT_DZISTAT_ACTIVITY, " + smoothedActivity);
           LOG.info("DISK,FCFS_STAT_DZISTAT_THRESHOLD, " + diskActivityThreshold);
           removePendingWrite();
         }
@@ -188,7 +191,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       //rawActivity = procReader.getWait();
       diskActivity = procReader.getWriteThroughput() + procReader.getReadThroughput();
       rawActivity = procReader.getMemThroughput() + diskActivity;
-      smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + (activitySmoothingExp*diskActivity));
+      smoothedActivity = (long)((smoothedActivity*(1-activitySmoothingExp)) + (activitySmoothingExp*rawActivity));
       //smoothedActivity = rawActivity;
       if( Math.abs(smoothedActivity-lowActivityMean) < Math.abs(smoothedActivity-highActivityMean)){
         lowActivityMean = (long)(lowActivityMean*(1-clusterSmoothingExp) + smoothedActivity*clusterSmoothingExp);
@@ -208,8 +211,9 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         return;
       }
       lastStatLog = System.currentTimeMillis();
-
+      LOG.info(sType.name() + ",FCFS_STAT_STATIC_THRESHOLD, " + staticThreshold );
       LOG.info(sType.name() + ",FCFS_STAT_DISK_THRESHOLD, " + diskActivityThreshold );
+      LOG.info(sType.name() + ",FCFS_STAT_STATIC_THRESHOLD, " + staticThreshold );
       LOG.info(sType.name() + ",FCFS_STAT_HIGH_MEAN, " + highActivityMean );
       LOG.info(sType.name() + ",FCFS_STAT_LOW_MEAN, " + lowActivityMean );
       LOG.info(sType.name() + ",FCFS_STAT_PEN_WRITE, " + pendingWrites.size());

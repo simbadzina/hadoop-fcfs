@@ -20,8 +20,8 @@ public class ProcReader {
   private DStats initDStats;
   private MStats currMemStats;
   private MStats prevMemStats;
-  private long prevTime;
-  private long currTime;
+//  private long prevTime;
+//  private long currTime;
 
   public ProcReader(String storageDevice) throws FileNotFoundException,IOException{
     prevStats = null;
@@ -34,8 +34,8 @@ public class ProcReader {
     currMemStats = null;
     prevMemStats = null;
     
-    prevTime = 0;
-    currTime = 1000;
+//    prevTime = 0;
+//    currTime = 1000;
     disk = storageDevice;
     updateInfo();
     updateInfo();
@@ -43,11 +43,11 @@ public class ProcReader {
   }
 
   public void updateInfo() throws IOException{
-    currTime = System.currentTimeMillis();
-    if(currTime-prevTime < 100){
-     return; 
-    }
-    prevTime = currTime;
+    //currTime = System.currentTimeMillis();
+    //if(currTime-prevTime < 100){
+    //return; 
+    //}
+    //prevTime = currTime;
     //BufferedReader br = new BufferedReader(new FileReader(DISK_FILE));
     String line;
     rFile.seek(0);
