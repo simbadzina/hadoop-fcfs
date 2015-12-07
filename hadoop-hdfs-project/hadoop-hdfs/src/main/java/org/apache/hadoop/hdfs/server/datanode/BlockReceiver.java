@@ -402,6 +402,7 @@ class BlockReceiver implements Closeable {
         bout.flush();
         fout.flush();
         long flushEndNanos = System.nanoTime();
+        LOG.info("DZEDSYNC," + syncOnClose);
         if (syncOnClose) {
           long fsyncStartNanos = flushEndNanos;
           streams.syncDataOut();

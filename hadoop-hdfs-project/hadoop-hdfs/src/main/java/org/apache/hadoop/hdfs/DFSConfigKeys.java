@@ -54,14 +54,16 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final int     FCFS_STAT_INTERVAL_DEFAULT = 5000;
   public static final String  FCFS_ACTIVITY_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
   public static final float   FCFS_ACTIVITY_SMOOTHING_EXP_DEFAULT = 0.1f;
-  public static final String  FCFS_CLUSTER_SMOOTHING_EXP_KEY = "fcfs.activity-smoothing-exp";
+  public static final String  FCFS_CLUSTER_SMOOTHING_EXP_KEY = "fcfs.cluster-smoothing-exp";
   public static final float   FCFS_CLUSTER_SMOOTHING_EXP_DEFAULT = 0.01f;
   public static final String  FCFS_REPLICATION_PRIORITY_KEY = "fcfs.replication-priority";
   public static final float   FCFS_REPLICATION_PRIORITY_DEFAULT = 1.0f;
   public static final String  FCFS_MAX_CONCURRENT_RECEIVES_KEY = "fcfs.max-concurrent-receives";
   public static final int     FCFS_MAX_CONCURRENT_RECEIVES_DEFAULT = 10;
   public static final String  FCFS_NUM_FLUSHING_THREADS_KEY = "fcfs.num-flushing-threads";
-  public static final int     FCFS_NUM_FLUSHING_THREADS_DEFAULT = 1;
+  public static final int     FCFS_NUM_FLUSHING_THREADS_DEFAULT = 16;
+  public static final String  FCFS_LOW_BAR_KEY = "fcfs.lowbar";
+  public static final long    FCFS_LOW_BAR_DEFAULT = 10*1024*1024;
   
   
   public static final String  FCFS_REPLICATION_TIMEOUT_KEY = "fcfs.replication-timeout";
@@ -76,6 +78,8 @@ public class DFSConfigKeys extends CommonConfigurationKeys {
   public static final String  FCFS_FLOW_NAME_DEFAULT = "";
   public static final String  FCFS_MAX_UNACK_TIME_KEY = "fcfs.max.unack.time";
   public static final long    FCFS_MAX_UNACK_TIME_DEFAULT = 5000;
+  public static final String  FCFS_MEM_THRESHOLD_KEY = "fcfs.mem-threshold";
+  public static final long    FCFS_MEM_THRESHOLD_DEFAULT = 10737418240L;
   
   public static final String  FCFS_STATIC_THRESHOLD_KEY = "fcfs.static-threshold";
   public static final int     FCFS_STATIC_THRESHOLD_DEFAULT = 100;

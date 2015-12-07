@@ -117,6 +117,10 @@ public class ProcReader {
     return MStats.getMemThroughput(prevMemStats, currMemStats);
   }
   
+  public long getMemUsed(){
+    return currMemStats.memUsed;
+  }
+  
 
 
   public static void main(String [] args){
