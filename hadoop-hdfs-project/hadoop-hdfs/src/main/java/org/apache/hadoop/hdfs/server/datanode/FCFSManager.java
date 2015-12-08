@@ -80,6 +80,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     private long LOWBAR ;
     private long memThreshold=0;
     private AtomicInteger inPool;
+    private long timeLog = 0;
     //    private long prevTime = 0;
     //    private long currTime = 1;
 
@@ -98,7 +99,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           DFSConfigKeys.FCFS_STATIC_THRESHOLD_DEFAULT) * (1024*1024);
       LOWBAR = manager.conf.getLong(DFSConfigKeys.FCFS_LOW_BAR_KEY,DFSConfigKeys.FCFS_LOW_BAR_DEFAULT);
       memThreshold = manager.conf.getLong(DFSConfigKeys.FCFS_MEM_THRESHOLD_KEY,DFSConfigKeys.FCFS_MEM_THRESHOLD_DEFAULT);
-      
+      timeLog = System.currentTimeMillis();
     }
 
     @Override
@@ -130,7 +131,12 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
 
     void processQueue(){
+      long processQueueStart = System.currentTimeMillis();
       //testing if disk activity is low
+      
+      LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_ALL, " + (System.currentTimeMillis()-timeLog));
+      timeLog = System.currentTimeMillis();
+      
       long oldState = repState;
       if(procReader.getMemUsed() < memThreshold){
         repState = -4; 
@@ -195,15 +201,21 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         }
       }
 
+      
       //testing if we don't have too many activity receives
+     
       for(int i = numAsyncWrite.get() + unAckRequests.size(); i < maxConcurrentReceives; i++){
         if(!receives.isEmpty()){
+          long getReceivesStart =  System.currentTimeMillis();
           PendingReceive toReceive = receives.getReceive();
+          LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_GETRECEIVES, " + (System.currentTimeMillis()-getReceivesStart));
           LOG.info(toReceive + "," + System.currentTimeMillis());
           if(toReceive != null){
             try{
               LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
+              long notifyUpStreamStart = System.currentTimeMillis();
               this.manager.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+              LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_NOTIFYUPSTREAM, " + (System.currentTimeMillis()-notifyUpStreamStart));
               unAckRequests.add(new UnAckRequest());
               LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
             }catch(IOException e){
@@ -214,14 +226,17 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           }
         }
       }
-
+      
+      LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_PROCESSQUEUE, " + (System.currentTimeMillis()-processQueueStart));
     }
 
 
     private void calculateSpeeds(){
+      long calculateSpeedsStart = System.currentTimeMillis();
       calculateActivity();
 
       stat_log();
+      LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_CALCULATESPEEDS, " + (System.currentTimeMillis()-calculateSpeedsStart));
     }
 
     public void calculateActivity(){
