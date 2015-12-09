@@ -24,6 +24,7 @@ import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.ipc.RemoteException;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.apache.hadoop.util.Daemon;
 
 import java.security.PrivilegedExceptionAction;
 
@@ -508,7 +509,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
 
   }
 
-  class PendingForward implements Comparable<PendingForward>{
+  class PendingForward implements Comparable<PendingForward>,Runnable{
     private final ExtendedBlock block;
     private final DatanodeInfo[] targets;
     private final StorageType[] targetStorageTypes;
@@ -546,13 +547,15 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       this.timeCreated = System.currentTimeMillis();
     }
 
-    public void forward(){
+    public void run(){
+      long transferStart = System.currentTimeMillis();
       try{
         LOG.info("DZINEX : ppSize : " + pipelineSize);
         datanode.FCFStransferBlock(block,targets,targetStorageTypes,replicationPriority, flowName,numImmediate,pipelineSize);
       }catch(Exception e){
         LOG.warn(e.toString());
       }
+      LOG.info("DISK,FCFS_STAT_TIMELOG_TRANSFER, " + (System.currentTimeMillis()-transferStart));
     }
 
     public boolean hasTargets(){
@@ -759,6 +762,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   public boolean sendDownStream(String blockID){
+    long sendDownStreamStart = System.currentTimeMillis();
+    long forwardStart=0;
     LOG.info("AMDG : SDS : REQUEST : " + blockID);
     LOG.info("AMDG : SDS : SIZE : " + pendingForwards.size());
     Iterator<PendingForward> it = pendingForwards.iterator();
@@ -769,10 +774,14 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         isFound = true;
         LOG.info("AMDG : SDS : HANDE :" + current.block.getBlockId());
         it.remove();
-        current.forward();  
+        forwardStart= System.currentTimeMillis();
+        current.run();
+        forwardStart= System.currentTimeMillis()-forwardStart;
+        LOG.info("DISK,FCFS_STAT_TIMELOG_FORWARD, " + forwardStart);
       }
 
     }
+    LOG.info("DISK,FCFS_STAT_TIMELOG_SENDDOWNSTREAM, " + (System.currentTimeMillis()-sendDownStreamStart-forwardStart));
     return isFound;
   }
 
