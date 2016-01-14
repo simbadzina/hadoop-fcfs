@@ -1,9 +1,13 @@
 package org.apache.hadoop.hdfs.server.datanode;
 
+import java.io.IOException;
+
 import org.apache.hadoop.hdfs.server.datanode.FCFSManager.PFPUtils;
+import org.apache.hadoop.hdfs.server.datanode.FCFSManager.StoManager;
+import org.apache.hadoop.hdfs.server.datanode.FCFSManager.UnAckRequest;
 
 
-public class PendingReceive implements Comparable<PendingReceive>{
+public class PendingReceive implements Comparable<PendingReceive>,Runnable{
   public String blockID;
   public String sourceIP;
   public long blockSize;
@@ -13,6 +17,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
   public String position;
   public float positionPriority;
   private long timestamp;
+  private final StoManager manager;
   
   public long pStart;
   public long pEnd;
@@ -22,7 +27,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
   
   
 
-  public PendingReceive(String message,float pPriority){
+  public PendingReceive(StoManager _manager,String message,float pPriority){
     String[] parts = PFPUtils.split(message);
     sourceIP = parts[0];
     blockID = parts[1];
@@ -33,6 +38,7 @@ public class PendingReceive implements Comparable<PendingReceive>{
     timeCreated = System.currentTimeMillis();
     
     positionPriority = pPriority;
+    manager = _manager;
     
   }
 
@@ -60,6 +66,16 @@ public class PendingReceive implements Comparable<PendingReceive>{
         + positionPriority + ","
         + timestamp;
     return res;
+  }
+
+  @Override
+  public void run() {
+    // TODO Auto-generated method stub
+    try{
+      manager.manager.notifyUpStream(sourceIP, blockID);
+    }catch(IOException e){
+      
+    }
   }
 
 }

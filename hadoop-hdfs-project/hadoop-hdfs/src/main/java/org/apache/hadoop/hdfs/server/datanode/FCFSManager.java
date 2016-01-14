@@ -34,7 +34,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   public static final Log LOG = DataNode.LOG;
   private int numFlushingThreads;
   private Queue<PendingForward> pendingForwards;
-
+  private boolean segmentEnabled = true;
 
 
 
@@ -61,7 +61,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   class StoManager implements Runnable {
-    private final FCFSManager manager;
+    public final FCFSManager manager;
     private ProcReader procReader;
     public Queue<PendingWrite> pendingWrites;
     public Queue<UnAckRequest> unAckRequests;
@@ -182,6 +182,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
           }
 
         }
+        //depend on memory only
+        repState = 4;
       }
 
       LOG.info(sType.name() + ",STATETRANS," + oldState + "," + repState);
@@ -206,22 +208,25 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
       //testing if we don't have too many activity receives
      
       for(int i = numAsyncWrite.get() + unAckRequests.size(); i < maxConcurrentReceives; i++){
+      // if(numAsyncWrite.get() + unAckRequests.size() < maxConcurrentReceives)
         if(!receives.isEmpty()){
           long getReceivesStart =  System.currentTimeMillis();
           PendingReceive toReceive = receives.getReceive();
           LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_GETRECEIVES, " + (System.currentTimeMillis()-getReceivesStart));
           LOG.info(toReceive + "," + System.currentTimeMillis());
           if(toReceive != null){
-            try{
-              LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
-              long notifyUpStreamStart = System.currentTimeMillis();
-              this.manager.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
-              LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_NOTIFYUPSTREAM, " + (System.currentTimeMillis()-notifyUpStreamStart));
+            //try{
+              //LOG.info("DZUDE asking upstream to send : " + toReceive.blockID);
               unAckRequests.add(new UnAckRequest());
-              LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
-            }catch(IOException e){
-              LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
-            }
+              long notifyUpStreamStart = System.currentTimeMillis();
+              pool.submit(toReceive);
+              //this.manager.notifyUpStream(toReceive.sourceIP, toReceive.blockID);
+              LOG.info(sType.name() + ",FCFS_STAT_TIMELOG_NOTIFYUPSTREAM, " + (System.currentTimeMillis()-notifyUpStreamStart));
+              
+              //LOG.info("PENDING_RECEIVE_AGE, " +  toReceive.getAge() + "," + toReceive.flowPriority);
+            //}catch(IOException e){
+              //LOG.warn("YOHWE : notifying upstream : " + e.getMessage());
+            //}
           }else{
             LOG.warn("TORECEIVE is null");
           }
@@ -402,6 +407,8 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
         DFSConfigKeys.FCFS_MAX_UNACK_TIME_DEFAULT);
     positionPriority = PFPUtils.colonsplit(conf.getStrings(DFSConfigKeys.FCFS_POSITION_PRIORITY_KEY,DFSConfigKeys.FCFS_POSITION_PRIORITY_DEFAULT)[0]);
 
+    segmentEnabled  = conf.getBoolean(DFSConfigKeys.FCFS_SEGMENT_ENABLED_KEY, DFSConfigKeys.FCFS_SEGMENT_ENABLED_DEFAULT);
+    LOG.info("SEGMENTENABLED, " + segmentEnabled);
     numBlocks = new AtomicInteger(0);
 
 
@@ -638,7 +645,6 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   boolean shouldSegment(int position,int numImmediate,int pipelineSize,String flowName){
-
     //always return false for last datanode in pipeline
     if(position+1 >= pipelineSize){
       return false;
@@ -649,6 +655,10 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
   }
 
   synchronized boolean isAsyncWrite(int position,int numImmediate,String flowName){
+    if(!segmentEnabled){
+      return false;
+    }
+    
     if(!flowName.contains("attempt")){
       return false;
     }
@@ -827,7 +837,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     String[] parts = PFPUtils.split(message);
     StorageType sType = StorageType.parseStorageType(parts[6]);
 
-    getStoMan(sType).receives.addReceive(new PendingReceive(message,getPriority(parts[5])));
+    getStoMan(sType).receives.addReceive(new PendingReceive(getStoMan(sType),message,getPriority(parts[5])));
     return message;
   }
 
@@ -875,7 +885,7 @@ public class FCFSManager implements PipelineFeedbackProtocol, Runnable {
     } 
   }
 
-  private void notifyUpStream(String datanodeIP,String message) throws IOException{
+  public void notifyUpStream(String datanodeIP,String message) throws IOException{
 
     PipelineFeedbackProtocol upstream;
     try{
